@@ -1977,10 +1977,6 @@ class Controller extends \MapasCulturais\Controllers\Registration
         
         foreach($aprovados as $r) {
             $count++;
-
-            if($r['N_INSCRICAO'] != 'pa-15162277' && $r['N_INSCRICAO'] != 'pa-288855'){
-                continue;
-            }
             
             $registration = $app->repo('Registration')->findOneBy(['number' => $r['N_INSCRICAO']]);
             $registration->__skipQueuingPCacheRecreation = true;
@@ -2016,10 +2012,8 @@ class Controller extends \MapasCulturais\Controllers\Registration
         }
 
         foreach($reprovados as $r) {
-            if($r['N_INSCRICAO'] != 'pa-15162277' && $r['N_INSCRICAO'] != 'pa-288855'){
-                continue;
-            }
             $count++;
+            
             $registration = $app->repo('Registration')->findOneBy(['number' => $r['N_INSCRICAO']]);
             $registration->__skipQueuingPCacheRecreation = true;
             
