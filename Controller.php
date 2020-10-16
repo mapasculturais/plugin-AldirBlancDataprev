@@ -813,8 +813,10 @@ class Controller extends \MapasCulturais\Controllers\Registration
                 $result = "";
                 if (is_array($field_id)) {
                     foreach ($field_id as $value) {
-                        $result = $registrations->$value;
-
+                        if($registrations->$value){
+                            $result = $registrations->$value;
+                            break;
+                        }
                     }
                 } else {
                     $result = $registrations->$field_id ? $registrations->$field_id : '';
