@@ -179,7 +179,12 @@ class Controller extends \MapasCulturais\Controllers\Registration
                 if (!$evaluation->user->aldirblanc_validador && $evaluation->result == '10') {
                     $homologado = true;
                 }
+            }
 
+            foreach ($evaluations as $evaluation) {
+                if (!$evaluation->user->aldirblanc_validador && $evaluation->result != '10') {
+                    $homologado = false;
+                }
             }
 
             if ($this->config['exportador_requer_homologacao'] && !$homologado) {
