@@ -164,24 +164,35 @@ class Controller extends \MapasCulturais\Controllers\Registration
         }
 
         // remove da lista as inscrições não homologadas, se configurado
-        if ($this->config['exportador_requer_homologacao']) {
-            $_regs = [];
-            foreach ($registrations as $registration) {
-                $evaluations = $app->repo('RegistrationEvaluation')->findBy(['registration' => $registration, 'status' => 1]);
-                $ok = false;
-                foreach ($evaluations as $evaluation) {
-                    if (!$evaluation->user->aldirblanc_validador) {
-                        $ok = true;
-                    }
+        $plugin = $app->plugins['AldirBlancDataprev'];
+        $dataprev_user = $plugin->getUser();
+        $_regs = [];
+        foreach ($registrations as $registration) {
+            $evaluations = $app->repo('RegistrationEvaluation')->findBy(['registration' => $registration, 'status' => 1]);
+            $ok = true;
+            $homologado = false;
+            foreach ($evaluations as $evaluation) {
+                if($dataprev_user->equals($evaluation->user)) {
+                    $ok = false;
+                }
+                
+                if (!$evaluation->user->aldirblanc_validador && $evaluation->result == '10') {
+                    $homologado = true;
                 }
 
-                if($ok) {
-                    $_regs[] = $registration;
-                }
             }
 
-            $registrations = $_regs;
+            if ($this->config['exportador_requer_homologacao'] && !$homologado) {
+                $ok = false;
+            }
+
+            if($ok) {
+                $_regs[] = $registration;
+            }
         }
+
+        $registrations = $_regs;
+        
 
         if (empty($registrations)) {
             echo "Não foram encontrados registros.";
