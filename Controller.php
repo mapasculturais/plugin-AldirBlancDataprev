@@ -1786,6 +1786,10 @@ class Controller extends \MapasCulturais\Controllers\Registration
         }
     }
 
+    function compareNames($n1, $n2) {
+
+    }
+
     /**
      * Importador para o inciso 1
      *
@@ -1815,6 +1819,8 @@ class Controller extends \MapasCulturais\Controllers\Registration
         if (!file_exists($filename)) {
             throw new Exception("Erro ao processar o arquivo. Arquivo inexistente");
         }
+
+        $app = App::i();
 
         //Abre o arquivo em modo de leitura
         $stream = fopen($filename, "r");
@@ -1855,6 +1861,7 @@ class Controller extends \MapasCulturais\Controllers\Registration
         $herder_layout = $conf_csv['herder_layout'];
 
         if ($error_layout = array_diff_assoc($herder_layout, $header_line_csv)) {
+            eval(\psy\sh());
             throw new Exception("os campos " . json_encode($error_layout) . " estão divergentes do layout necessário.");
 
         }
@@ -1862,8 +1869,35 @@ class Controller extends \MapasCulturais\Controllers\Registration
         //Inicia a verificação dos dados do requerente
         $evaluation = [];
         $parameters = $conf_csv['acceptance_parameters'];
+        
+        $registrat_ids = [];
 
+        foreach ($results as $results_key => $item) {
+            $registrat_ids[] = $item['IDENTIF_CAD_ESTAD_CULT'];
+        }
+
+        $dql = "
+        SELECT
+            e.number,
+            e._agentsData
+        FROM
+            MapasCulturais\Entities\Registration e
+        WHERE
+            e.number in (:reg_ids)";
+
+        $query = $app->em->createQuery($dql);
+        $query->setParameters([
+            'reg_ids' => $registrat_ids
+        ]);
+
+        $agent_names = [];
+
+        foreach($query->getScalarResult() as $r) {
+            $data = json_decode($r['_agentsData']);
+            $agent_names[$r['number']] = $data->owner->nomeCompleto;
+        };
         $raw_data_by_num = [];
+        // return;
         foreach ($results as $results_key => $result) {
             $raw_data_by_num[$result['IDENTIF_CAD_ESTAD_CULT']] = $result;
             
@@ -1982,7 +2016,6 @@ class Controller extends \MapasCulturais\Controllers\Registration
             }
         }));
 
-        $app = App::i();
         $app->disableAccessControl();
         $count = 0;
         
@@ -2024,7 +2057,7 @@ class Controller extends \MapasCulturais\Controllers\Registration
 
         foreach($reprovados as $r) {
             $count++;
-            
+
             $registration = $app->repo('Registration')->findOneBy(['number' => $r['N_INSCRICAO']]);
             $registration->__skipQueuingPCacheRecreation = true;
             
@@ -2047,7 +2080,7 @@ class Controller extends \MapasCulturais\Controllers\Registration
             $evaluation->__skipQueuingPCacheRecreation = true;
             $evaluation->user = $user;
             $evaluation->registration = $registration;
-            $evaluation->evaluationData = ['status' => "2", "obs" => implode("\n\r", $r['REASONS'])];
+            $evaluation->evaluationData = ['status' => "2", "obs" => implode("\\n", $r['REASONS'])];
             $evaluation->result = "2";
             $evaluation->status = 1;
 
@@ -2065,7 +2098,6 @@ class Controller extends \MapasCulturais\Controllers\Registration
         $files = $opportunity->dataprev_processed_files;
         $files->{basename($filename)} = date('d/m/Y \à\s H:i');
         $opportunity->dataprev_processed_files = $files;
-        $opportunity->__skipQueuingPCacheRecreation = true;
         $opportunity->save(true);
         $app->enableAccessControl();
         $this->finish('ok');
