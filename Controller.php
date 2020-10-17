@@ -913,10 +913,10 @@ class Controller extends \MapasCulturais\Controllers\Registration
                 return 0;
             },
             'SISTEMA_CAD_ES_PONTOS_PONTOES' => function ($registrations) use ($fields_cpf) {
-                return 0;
+                return '';
             },
             'IDENTIFICADOR_CAD_ES_PONTOS_PONTOES' => function ($registrations) use ($fields_cpf) {
-                return 0;
+                return '';
             },
             'FLAG_CAD_SNIIC' => function ($registrations) use ($fields_cpf, $inscricoes) {
                 $field_id = $fields_cpf["FLAG_CAD_SNIIC"];
