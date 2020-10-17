@@ -37,6 +37,45 @@ class Controller extends \MapasCulturais\Controllers\Registration
         $this->layout = 'aldirblanc';
     }
 
+    protected function filterRegistrations(array $registrations) {
+        $app = App::i();
+
+        $plugin = $app->plugins['AldirBlancDataprev'];
+        $dataprev_user = $plugin->getUser();
+        
+        $_regs = [];
+        foreach ($registrations as $registration) {
+            $evaluations = $app->repo('RegistrationEvaluation')->findBy(['registration' => $registration, 'status' => 1]);
+            $ok = true;
+            $homologado = false;
+            foreach ($evaluations as $evaluation) {
+                if($dataprev_user->equals($evaluation->user)) {
+                    $ok = false;
+                }
+                
+                if (!$evaluation->user->aldirblanc_validador && $evaluation->result == '10') {
+                    $homologado = true;
+                }
+            }
+
+            foreach ($evaluations as $evaluation) {
+                if (!$evaluation->user->aldirblanc_validador && $evaluation->result != '10') {
+                    $homologado = false;
+                }
+            }
+
+            if ($this->config['exportador_requer_homologacao'] && !$homologado) {
+                $ok = false;
+            }
+
+            if($ok) {
+                $_regs[] = $registration;
+            }
+        }
+
+        return $_regs;
+    }
+
     /**
      * Exportador para o inciso 1
      *
@@ -163,41 +202,7 @@ class Controller extends \MapasCulturais\Controllers\Registration
             $registrations = $query->getResult();
         }
 
-        // remove da lista as inscrições não homologadas, se configurado
-        $plugin = $app->plugins['AldirBlancDataprev'];
-        $dataprev_user = $plugin->getUser();
-        $_regs = [];
-        foreach ($registrations as $registration) {
-            $evaluations = $app->repo('RegistrationEvaluation')->findBy(['registration' => $registration, 'status' => 1]);
-            $ok = true;
-            $homologado = false;
-            foreach ($evaluations as $evaluation) {
-                if($dataprev_user->equals($evaluation->user)) {
-                    $ok = false;
-                }
-                
-                if (!$evaluation->user->aldirblanc_validador && $evaluation->result == '10') {
-                    $homologado = true;
-                }
-            }
-
-            foreach ($evaluations as $evaluation) {
-                if (!$evaluation->user->aldirblanc_validador && $evaluation->result != '10') {
-                    $homologado = false;
-                }
-            }
-
-            if ($this->config['exportador_requer_homologacao'] && !$homologado) {
-                $ok = false;
-            }
-
-            if($ok) {
-                $_regs[] = $registration;
-            }
-        }
-
-        $registrations = $_regs;
-        
+        $registrations = $this->filterRegistrations($registrations);        
 
         if (empty($registrations)) {
             echo "Não foram encontrados registros.";
@@ -700,6 +705,8 @@ class Controller extends \MapasCulturais\Controllers\Registration
             ]);
             $registrations = $query->getResult();
         }
+
+        $registrations = $this->filterRegistrations($registrations);
 
         if (empty($registrations)) {
             echo "Não foram encontrados registros.";
