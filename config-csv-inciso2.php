@@ -256,46 +256,46 @@ return [
         'IN_CPF_POLIT_EXPOSTO',
         'DATA_REPROCESSAMENTO',
         'IN_PRESTACAO_CONTAS_CONFIRMADA',
-        'DATA_PRESTACAO_CONTAS',
+        'DATA_PRESTACAO_CONTAS'
     ],
     'acceptance_parameters' => [ // Parametros de aceitação planilha
 
         'IN_OBITO' => [
             'positive' => [
-                'Não',
+                'Não'
             ],
             'negative' => [
-                'Sim',
+                'Sim'
             ],
             'response' => 'De acordo com o que consta na base dados federal, o requerente encontra-se inscrito no Sistema de Controle de Óbitos (SISOBI).',
             'impediment' => true,
         ],
         'IN_DETENTO' => [
             'positive' => [
-                'Não',
+                'Não'
             ],
             'negative' => [
-                'Sim',
+                'Sim'
             ],
             'response' => 'De acordo com o que consta na base dados federal, o requerente possui impedimento legal para o recebimento deste benefício (Cód.190dt).',
             'impediment' => true,
         ],
         'IN_CPF_PROCURADO_JUSTICA' => [
             'positive' => [
-                'Não',
+                'Não'
             ],
             'negative' => [
-                'Sim',
+                'Sim'
             ],
             'response' => 'De acordo com o que consta na base dados federal, o requerente possui impedimento legal para o recebimento deste benefício. (Cód.190pr).',
             'impediment' => true,
         ],
         'IN_CPF_INCISO2: CPF faz parte do quadro societário de empresas que estão cadastradas no inciso 2.' => [
             'positive' => [
-                'Não',
+                'Não'
             ],
             'negative' => [
-                'Sim',
+                'Sim'
             ],
             'response' => 'De acordo com o que consta na base dados federal, o requerente ou um de seus sócios já solicitou o benefício do subsídio mensal por uma entidade, empresa ou cooperativa cultural inscrita em CNPJ ao qual é responsável.',
             'impediment' => true,
@@ -305,10 +305,10 @@ return [
                 'Não',
             ],
             'negative' => [
-                'Sim',
+                'Sim'
             ],
             'response' => 'De acordo com o que consta na base dados federal, um ou mais sócios da entidade, empresa ou cooperativa cultural, inscrita em CNPJ, já solicitaram o benefício do subsídio mensal, na qualidade de pessoa física responsável por um espaço artístico e cultural ou por outra entidade, empresa ou cooperativa cultural, inscrita em CNPJ.',
-            'impediment' => true,
+            'impediment' => true
         ],
         'REQUERENTE_CPF_SITUACAO' => [
             'positive' => [
@@ -320,7 +320,7 @@ return [
                 4,
                 5,
                 8,
-                9,
+                9
             ],
             'response' => 'De acordo com o que consta na base dados federal, o requerente não está com o CPF regular perante à Secretaria da Receita Federal do Brasil - SRFB',
             'impediment' => true,
@@ -333,7 +333,7 @@ return [
                 1,
                 3,
                 4,
-                8,
+                8
             ],
             'response' => 'De acordo com o que consta na base dados federal, o CNPJ do requerente não está ativo perante à Secretaria da Receita Federal do Brasil - SRFB.',
             'impediment' => true,
@@ -343,7 +343,7 @@ return [
                 18, //No arquivo DataPrev.php é validado se o requerente é maior ou igual a 18 anos de idade
             ],
             'response' => 'De acordo com o que consta na base dados federal, o requerente é menor de 18 anos.',
-            'impediment' => true,
+            'impediment' => true
         ],
         'NATUREZA_JURIDICA' => [
             'positive' => [
@@ -360,7 +360,7 @@ return [
                 '2313',
                 '3069',
                 '3239',
-                '3999',
+                '3999'
             ],
             'response' => 'De acordo com o que consta na base dados federal, a natureza jurídica do requerente é incompatível ao recebimento do benefício.',
             'impediment' => true,
@@ -376,7 +376,7 @@ return [
         'IN_CNPJ_INCISO2: Possui membros do quadro societário que também realizaram cadastro no inciso 2.' => true,
         'IN_OBITO' => true,
         'IN_DETENTO' => true,
-        'IN_CPF_PROCURADO_JUSTICA' => true,
+        'IN_CPF_PROCURADO_JUSTICA' => true
 
     ],
     'validation_cad_cultural' => [ //Faz a verificação se o requerente esta incrito em um dos cadastros culturais listados nesse array
@@ -388,7 +388,7 @@ return [
         'IN_INSCRIC_HOMOLOG_SICAB',
         'IN_INSCRIC_HOMOLOG_SALIC',
         'IN_SICAB',
-        'IN_SALIC',
+        'IN_SALIC'
     ],
     'RegisterNumber' => 'IDENTIF_CAD_MUNIC_CULT' //Define qual será o campo utilizado para recuperar o número da inscrição na importação de dados
 

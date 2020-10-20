@@ -2265,21 +2265,18 @@ class Controller extends \MapasCulturais\Controllers\Registration
                         } elseif (in_array(trim($value), $field['negative'])) {
                             $evaluation[$results_key]['VALIDATION'][$key_candidate] = $field['response'];
 
-                        } 
-                        
+                        }
                     }
                 
                 }else {
                     if ($field) {
-                    if ($value === $field) {
+                        if ($value === $field) {
                         $evaluation[$results_key]['VALIDATION'][$key_candidate] = true;
                     }
-
-                }
-
                 }
             }
         }
+    }
 
 
         //Define se o requerente esta apto ou inapto levando em consideração as diretrizes de negocio
