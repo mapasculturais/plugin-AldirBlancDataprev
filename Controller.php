@@ -4,14 +4,15 @@ namespace AldirBlancDataprev;
 
 use DateTime;
 use Exception;
-use League\Csv\Writer;
+use Normalizer;
+use MapasCulturais\i;
 use League\Csv\Reader;
-use League\Csv\Statement;
+use League\Csv\Writer;
 use MapasCulturais\App;
+use League\Csv\Statement;
 use MapasCulturais\Entities\Opportunity;
 use MapasCulturais\Entities\Registration;
 use MapasCulturais\Entities\RegistrationEvaluation;
-use MapasCulturais\i;
 
 /**
  * Registration Controller
@@ -1793,7 +1794,7 @@ class Controller extends \MapasCulturais\Controllers\Registration
             if ($file->id == $file_id) {
                 if($opportunity_id == $inciso1_opportunity_id){
                     $this->import_inciso1($opportunity, $file->getPath());
-                } else if (in_array($opportunity_id, $inciso2_opportunity_ids)) {
+                } else if (in_array($opportunity_id, $inciso2_opportunity_ids)) {                   
                     $this->import_inciso2($opportunity, $file->getPath());
                 }
             }
@@ -1874,10 +1875,8 @@ class Controller extends \MapasCulturais\Controllers\Registration
         //Verifica se o layout do arquivo esta nos padroes enviados pela dataprev
         $herder_layout = $conf_csv['herder_layout'];
 
-        if ($error_layout = array_diff_assoc($herder_layout, $header_line_csv)) {
-            eval(\psy\sh());
+        if ($error_layout = array_diff_assoc($herder_layout, $header_line_csv)) {            
             throw new Exception("os campos " . json_encode($error_layout) . " estão divergentes do layout necessário.");
-
         }
 
         //Inicia a verificação dos dados do requerente
@@ -2117,7 +2116,300 @@ class Controller extends \MapasCulturais\Controllers\Registration
         $this->finish('ok');
     }
 
-    public function import_inciso2() {
+    public function import_inciso2(Opportunity $opportunity, string $filename) { 
         
+        /**
+         * Seta o timeout e limite de memoria
+         */
+        ini_set('max_execution_time', 0);
+        ini_set('memory_limit', '768M');
+
+        // Pega as configurações no arquivo config-csv-inciso1.php
+        $conf_csv = $this->config['csv_inciso2'];       
+
+        //verifica se o mesmo esta no servidor
+        if (!file_exists($filename)) {
+            throw new Exception("Erro ao processar o arquivo. Arquivo inexistente");
+        }
+
+        $app = App::i();
+
+        //Abre o arquivo em modo de leitura
+        $stream = fopen($filename, "r");
+
+        //Faz a leitura do arquivo
+        $csv = Reader::createFromStream($stream);
+
+        //Define o limitador do arqivo (, ou ;)
+        $csv->setDelimiter(";");
+
+        //Seta em que linha deve se iniciar a leitura
+        $header_temp = $csv->setHeaderOffset(0);
+
+        //Faz o processamento dos dados
+        $stmt = (new Statement());
+        $results = $stmt->process($csv);
+
+        //Verifica a extenção do arquivo
+        $ext = pathinfo($filename, PATHINFO_EXTENSION);
+
+        if ($ext != "csv") {
+            throw new Exception("Arquivo não permitido.");
+        }
+
+        //Verifica se o arquivo esta dentro layout
+        foreach ($header_temp as $key => $value) {
+            $header_file[] = $value;
+            break;
+        }
+
+        foreach ($header_file[0] as $key => $value) {
+            $header_line_csv[] = $key;
+        }
+        
+        //Verifica se o layout do arquivo esta nos padroes enviados pela dataprev
+        $herder_layout = $conf_csv['herder_layout'];
+        
+        if ($error_layout = array_diff_assoc($herder_layout, $header_line_csv)) {            
+            throw new Exception("os campos " . json_encode($error_layout) . " estão divergentes do layout necessário.");
+
+        } 
+        
+        //Inicia a verificação dos dados do requerente
+        $evaluation = [];
+        $parameters = $conf_csv['acceptance_parameters'];
+        $register = $conf_csv['RegisterNumber'];
+        
+        $registrat_ids = [];        
+
+        foreach ($results as $results_key => $item) {
+            
+            $registrat_ids[] = $item[$register];
+        }       
+        
+        $dql = "
+        SELECT
+            e.number,
+            e._agentsData
+        FROM
+            MapasCulturais\Entities\Registration e
+        WHERE
+            e.number in (:reg_ids)";
+
+        $query = $app->em->createQuery($dql);
+        $query->setParameters([
+            'reg_ids' => $registrat_ids
+        ]);
+
+        $agent_names = [];
+
+        foreach($query->getScalarResult() as $r) {
+            $data = json_decode($r['_agentsData']);
+            $agent_names[$r['number']] = $data->owner->nomeCompleto;
+        };
+       
+        $raw_data_by_num = [];
+        // return;
+        foreach ($results as $results_key => $result) {
+            
+            $raw_data_by_num[$result[$register]] = $result;
+
+            $candidate = $result;
+            foreach ($candidate as $key_candidate => $value) {                
+                
+                if ($key_candidate == $conf_csv['RegisterNumber']) {
+                    $evaluation[$results_key]['DADOS_DO_REQUERENTE']['N_INSCRICAO'] = $value;
+                }
+
+                if ($key_candidate == 'REQUERENTE_CPF' && !empty($value)) {
+                    $evaluation[$results_key]['DADOS_DO_REQUERENTE']['CPF'] = $value;
+                }elseif($key_candidate == 'REQUERENTE_CNPJ' && !empty($value)){
+                    $evaluation[$results_key]['DADOS_DO_REQUERENTE']['CNPJ'] = $value;
+                }
+
+                $field = isset($parameters[$key_candidate]) ? $parameters[$key_candidate] : "";
+                
+                if (is_array($field)) { 
+                    if(!empty($field)){
+                        if ($key_candidate == "REQUERENTE_DATA_NASCIMENTO") {
+                            if(!empty($value)){
+                                $date = explode("/", $value);
+                                $date = new DateTime($date[2] . '-' . $date[1] . '-' . $date[0]);
+                                $idade = $date->diff(new DateTime(date('Y-m-d')));
+        
+                                if ($idade->format('%Y') >= $field['positive'][0]) {
+                                    $evaluation[$results_key]['VALIDATION'][$key_candidate] = true;
+        
+                                } else {
+                                    $evaluation[$results_key]['VALIDATION'][$key_candidate] = $field['response'];
+                                }
+                            }else{
+                                $evaluation[$results_key]['VALIDATION'][$key_candidate] = true;
+                            }
+                          
+    
+                        }elseif ($key_candidate == "NATUREZA_JURIDICA") {
+                           if(empty($value)){
+                            $evaluation[$results_key]['VALIDATION'][$key_candidate] = true;
+                           }else{
+                            if(in_array($this->normalizeString($value), $field['positive'])) {
+                                $evaluation[$results_key]['VALIDATION'][$key_candidate] = true;
+                            }else{
+                                $evaluation[$results_key]['VALIDATION'][$key_candidate] = $field['response'];
+                            }
+                           }
+                          
+                        }elseif (in_array(trim($value), $field['positive'])) {
+                            $evaluation[$results_key]['VALIDATION'][$key_candidate] = true;
+
+                        } elseif (in_array(trim($value), $field['negative'])) {
+                            $evaluation[$results_key]['VALIDATION'][$key_candidate] = $field['response'];
+
+                        } 
+                        
+                    }
+                
+                }else {
+                    if ($field) {
+                    if ($value === $field) {
+                        $evaluation[$results_key]['VALIDATION'][$key_candidate] = true;
+                    }
+
+                }
+
+                }
+            }
+        }
+
+
+        //Define se o requerente esta apto ou inapto levando em consideração as diretrizes de negocio
+        $result_aptUnfit = [];       
+        foreach ($evaluation as $key_evaluetion => $value) {
+            $result_validation = array_diff($value['VALIDATION'], $conf_csv['validation_reference']);
+            if (!$result_validation) {
+                $result_aptUnfit[$key_evaluetion] = $value['DADOS_DO_REQUERENTE'];
+                $result_aptUnfit[$key_evaluetion]['ACCEPT'] = true;
+            } else {
+                $result_aptUnfit[$key_evaluetion] = $value['DADOS_DO_REQUERENTE'];                
+                $result_aptUnfit[$key_evaluetion]['ACCEPT'] = false;
+                foreach ($value['VALIDATION'] as $value) {
+                    if (is_string($value)) {
+                        $result_aptUnfit[$key_evaluetion]['REASONS'][] = $value;
+                    }
+                }
+            }
+
+        }
+       
+        $aprovados = array_values(array_filter($result_aptUnfit, function($item) {
+            if($item['ACCEPT']) {
+                return $item;
+            }
+        }));
+
+        $reprovados = array_values(array_filter($result_aptUnfit, function($item) {
+            if(!$item['ACCEPT']) {
+                return $item;
+            }
+        }));
+
+        $app->disableAccessControl();
+        $count = 0;
+        
+        foreach($aprovados as $r) {
+            $count++;
+            
+            $registration = $app->repo('Registration')->findOneBy(['number' => $r['N_INSCRICAO']]);
+            $registration->__skipQueuingPCacheRecreation = true;
+            
+            /* @TODO: implementar atualização de status?? */
+            if ($registration->dataprev_raw != (object) []) {
+                $app->log->info("Dataprev #{$count} {$registration} APROVADA - JÁ PROCESSADA");
+                continue;
+            }
+            
+            $app->log->info("Dataprev #{$count} {$registration} APROVADA");
+            
+            $registration->dataprev_raw = $raw_data_by_num[$registration->number];
+            $registration->dataprev_processed = $r;
+            $registration->dataprev_filename = $filename;
+            $registration->save(true);
+    
+            $user = $app->plugins['AldirBlancDataprev']->getUser();
+
+            /* @TODO: versão para avaliação documental */
+            $evaluation = new RegistrationEvaluation;
+            $evaluation->__skipQueuingPCacheRecreation = true;
+            $evaluation->user = $user;
+            $evaluation->registration = $registration;
+            $evaluation->evaluationData = ['status' => "10", "obs" => 'selecionada'];
+            $evaluation->result = "10";
+            $evaluation->status = 1;
+
+            $evaluation->save(true);
+
+            $app->em->clear();
+
+        }
+
+        foreach($reprovados as $r) {
+            $count++;
+
+            $registration = $app->repo('Registration')->findOneBy(['number' => $r['N_INSCRICAO']]);
+            $registration->__skipQueuingPCacheRecreation = true;
+            
+            if ($registration->dataprev_raw != (object) []) {
+                $app->log->info("Dataprev #{$count} {$registration} REPROVADA - JÁ PROCESSADA");
+                continue;
+            }
+
+            $app->log->info("Dataprev #{$count} {$registration} REPROVADA");
+
+            $registration->dataprev_raw = $raw_data_by_num[$registration->number];
+            $registration->dataprev_processed = $r;
+            $registration->dataprev_filename = $filename;
+            $registration->save(true);
+
+            $user = $app->plugins['AldirBlancDataprev']->getUser();
+
+            /* @TODO: versão para avaliação documental */
+            $evaluation = new RegistrationEvaluation;
+            $evaluation->__skipQueuingPCacheRecreation = true;
+            $evaluation->user = $user;
+            $evaluation->registration = $registration;
+            $evaluation->evaluationData = ['status' => "2", "obs" => implode("\\n", $r['REASONS'])];
+            $evaluation->result = "2";
+            $evaluation->status = 1;
+
+            $evaluation->save(true); 
+
+            $app->em->clear();
+
+        }
+        
+        // por causa do $app->em->clear(); não é possível mais utilizar a entidade para salvar
+        $opportunity = $app->repo('Opportunity')->find($opportunity->id);
+        
+        $opportunity->refresh();
+        $opportunity->name = $opportunity->name . ' ';
+        $files = $opportunity->dataprev_processed_files;
+        $files->{basename($filename)} = date('d/m/Y \à\s H:i');
+        $opportunity->dataprev_processed_files = $files;
+        $opportunity->save(true);
+        $app->enableAccessControl();
+        $this->finish('ok');        
+        
+    }
+
+    /**
+     * Faz a normalização da string e remove caracteres especiais
+     *
+     * @param string $value
+     * @return string
+     */
+    private function normalizeString($value): string
+    {
+        $value = Normalizer::normalize($value, Normalizer::FORM_D);
+       return preg_replace('/[^a-z0-9 ]/i', '', $value);
     }
 }
