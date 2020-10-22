@@ -1646,16 +1646,24 @@ class Controller extends \MapasCulturais\Controllers\Registration
         foreach ($registrations as $key_registration => $registration) {
 
             //Verifica qual tipo de candidato se trata no  cadastro se e pessoa física ou pessoa jurídica
-            $field_temp = $fields_cnpj['CNPJ'];
+            $type_category = [
+                'fields_cpf_' =>[                    
+                    'BENEFICIÁRIO COM CPF E ESPAÇO FÍSICO',                    
+                    'BENEFICIÁRIO COM CPF E SEM ESPAÇO FÍSICO'
+                ],
+                'fields_cnpj_' => [
+                    'BENEFICIÁRIO COM CNPJ E SEM ESPAÇO FÍSICO',
+                    'BENEFICIÁRIO COM CNPJ E ESPAÇO FÍSICO'                
+                ]
+            ];
 
-            $type_candidate = "fields_cpf_";
-            foreach ($field_temp as $value) {
-                if ($registration->$value) {
-                    $type_candidate = 'fields_cnpj_';
+            foreach($type_category as $key => $value){
+                if(array_search($registration->category, $value)){
+                    $type_candidate = $key;
 
                 }
             }
-
+            
             /**
              * Faz a separação dos candidatos
              *
