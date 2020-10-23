@@ -40,40 +40,18 @@ class Controller extends \MapasCulturais\Controllers\Registration
 
     protected function filterRegistrations(array $registrations) {
         $app = App::i();
-
-        $plugin = $app->plugins['AldirBlancDataprev'];
-        $dataprev_user = $plugin->getUser();
         
         $_regs = [];
         foreach ($registrations as $registration) {
-            $evaluations = $app->repo('RegistrationEvaluation')->findBy(['registration' => $registration, 'status' => 1]);
-            $ok = true;
-            $homologado = false;
-            foreach ($evaluations as $evaluation) {
-                if($dataprev_user->equals($evaluation->user)) {
-                    $ok = false;
+            if ($this->config['exportador_requer_homologacao']) {
+                if (in_array($registration->consolidatedResult, ['10', 'homologado']) ) {
+                    $_regs[] = $registration;
                 }
-                
-                if (!$evaluation->user->aldirblanc_validador && $evaluation->result == '10') {
-                    $homologado = true;
-                }
-            }
-
-            foreach ($evaluations as $evaluation) {
-                if (!$evaluation->user->aldirblanc_validador && $evaluation->result != '10') {
-                    $homologado = false;
-                }
-            }
-
-            if ($this->config['exportador_requer_homologacao'] && !$homologado) {
-                $ok = false;
-            }
-
-            if($ok) {
+            } else {
                 $_regs[] = $registration;
             }
         }
-
+        
         return $_regs;
     }
 
@@ -826,6 +804,9 @@ class Controller extends \MapasCulturais\Controllers\Registration
                 $result = "";
                 if (is_array($field_id)) {
                     foreach ($field_id as $value) {
+                        if (!$value) {
+                            continue;
+                        }
                         if($registrations->$value){
                             $result = $registrations->$value;
                             break;
@@ -1233,6 +1214,7 @@ class Controller extends \MapasCulturais\Controllers\Registration
         $fields_cnpj_ = [
             'CNPJ' => function ($registrations) use ($fields_cnpj) {
                 $field_temp = $fields_cnpj['CNPJ'];
+                $field_id = null;
 
                 if (is_array($field_temp)) {
                     foreach ($field_temp as $value) {
@@ -1244,7 +1226,11 @@ class Controller extends \MapasCulturais\Controllers\Registration
                 } else {
                     $field_id = $field_temp;
                 }
-                return str_replace(['.', '-', '/'], '', $registrations->$field_id);
+                if ($field_id){
+                    return str_replace(['.', '-', '/'], '', $registrations->$field_id);
+                } else {
+                    return null;
+                }
 
             }, 'FLAG_CAD_ESTADUAL' => function ($registrations) use ($fields_cnpj, $inscricoes) {
                 $field_id = $fields_cnpj["FLAG_CAD_ESTADUAL"];
@@ -1644,24 +1630,14 @@ class Controller extends \MapasCulturais\Controllers\Registration
         $data_candidate_cpf = [];
         $data_candidate_cnpj = [];
         foreach ($registrations as $key_registration => $registration) {
-
+            
             //Verifica qual tipo de candidato se trata no  cadastro se e pessoa física ou pessoa jurídica
-            $type_category = [
-                'fields_cpf_' =>[                    
-                    'BENEFICIÁRIO COM CPF E ESPAÇO FÍSICO',                    
-                    'BENEFICIÁRIO COM CPF E SEM ESPAÇO FÍSICO'
-                ],
-                'fields_cnpj_' => [
-                    'BENEFICIÁRIO COM CNPJ E SEM ESPAÇO FÍSICO',
-                    'BENEFICIÁRIO COM CNPJ E ESPAÇO FÍSICO'                
-                ]
-            ];
-
-            foreach($type_category as $key => $value){
-                if(array_search($registration->category, $value)){
-                    $type_candidate = $key;
-
-                }
+            if (in_array($registration->category, ['BENEFICIÁRIO COM CPF E ESPAÇO FÍSICO', 'BENEFICIÁRIO COM CPF E SEM ESPAÇO FÍSICO'])) {
+                $type_candidate = 'fields_cpf_';
+            } else if (in_array($registration->category, ['BENEFICIÁRIO COM CNPJ E SEM ESPAÇO FÍSICO', 'BENEFICIÁRIO COM CNPJ E ESPAÇO FÍSICO'])) {
+                $type_candidate = 'fields_cnpj_';
+            } else {
+                die("inscrição: {$registration->number} - categoria '{$registration->category}' inválida");
             }
             
             /**
