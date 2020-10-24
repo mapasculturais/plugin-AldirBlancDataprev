@@ -43,9 +43,9 @@ return [
     'opportunities' => [
         '4788' => [
             'TIPO_PROPONENTE' => 'field_1098',
-            'TIPO_INSTRUMENTO' => '',
-            'NUMERO_INSTRUMENTO' => '',
-            'ANO_INSTRUMENTO' => '',
+            'TIPO_INSTRUMENTO' => 'Edital',
+            'NUMERO_INSTRUMENTO' => '24',
+            'ANO_INSTRUMENTO' => '2020',
             'CPF' => 'field_1104',
             'SEXO' => 'csvMap',
             'CNPJ' => 'field_1118',
@@ -68,7 +68,7 @@ return [
             'PESSOA_FISICA' => 'Pessoa Física',
             'PESSOA_JURIDICA' => 'Pessoa Jurídica',
             'COLETIVO' => 'Coletivo',
-            'DIR_CSV' => __DIR__.'/csv/deParaSexo.csv',
+            'DIR_CSV' => 'csv4788.csv',
         ],
         '4789' => [
                 'TIPO_PROPONENTE' => null,
@@ -76,7 +76,7 @@ return [
                 'NUMERO_INSTRUMENTO' => '',
                 'ANO_INSTRUMENTO' => '',
                 'CPF' => 'field_1126',
-                'SEXO' => 'field_1145',
+                'SEXO' => 'csvMap',
                 'CNPJ' => '',
                 'FLAG_CAD_ESTADUAL' => 0,            
                 'FLAG_CAD_MUNICIPAL' => 1,            
@@ -96,7 +96,8 @@ return [
                 'FLAG_ATUACAO_HUMANIDADES' => 0,
                 'PESSOA_FISICA' => 'Pessoa Física',
                 'PESSOA_JURIDICA' => 'Pessoa Jurídica',
-                'COLETIVO' => 'Coletivo',   
+                'COLETIVO' => 'Coletivo',
+                'DIR_CSV' => 'csv4789.csv',
                            
         ],
         '4790' => [
@@ -105,7 +106,7 @@ return [
             'NUMERO_INSTRUMENTO' => '',
             'ANO_INSTRUMENTO' => '',
             'CPF' => 'field_1169',
-            'SEXO' => 'field_1158',
+            'SEXO' => 'csvMap',
             'CNPJ' => '',
             'FLAG_CAD_ESTADUAL' => 0,            
             'FLAG_CAD_MUNICIPAL' => 1,            
@@ -125,7 +126,8 @@ return [
             'FLAG_ATUACAO_HUMANIDADES' => 0,
             'PESSOA_FISICA' => 'Pessoa Física',
             'PESSOA_JURIDICA' => 'Pessoa Jurídica',
-            'COLETIVO' => 'Coletivo',   
+            'COLETIVO' => 'Coletivo',
+            'DIR_CSV' => 'csv4790.csv',
         ],
         '4791' => [
             'TIPO_PROPONENTE' => 'field_1302',
@@ -133,7 +135,7 @@ return [
             'NUMERO_INSTRUMENTO' => '',
             'ANO_INSTRUMENTO' => '',
             'CPF' => 'field_1188',
-            'SEXO' => 'field_1186',
+            'SEXO' => 'csvMap',
             'CNPJ' => 'field_1310',
             'FLAG_CAD_ESTADUAL' => 0,            
             'FLAG_CAD_MUNICIPAL' => 1,            
@@ -153,7 +155,8 @@ return [
             'FLAG_ATUACAO_HUMANIDADES' => 0,
             'PESSOA_FISICA' => 'Pessoa Física',
             'PESSOA_JURIDICA' => 'Pessoa Jurídica',
-            'COLETIVO' => 'Coletivo', 
+            'COLETIVO' => 'Coletivo',
+            'DIR_CSV' => 'csv4791.csv',
         ],
         '4792' => [
             'TIPO_PROPONENTE' => null,
@@ -161,7 +164,7 @@ return [
             'NUMERO_INSTRUMENTO' => '',
             'ANO_INSTRUMENTO' => '',
             'CPF' => 'field_1199',
-            'SEXO' => 'field_1197',
+            'SEXO' => 'csvMap',
             'CNPJ' => '',
             'FLAG_CAD_ESTADUAL' => 0,            
             'FLAG_CAD_MUNICIPAL' => 1,            
@@ -181,7 +184,8 @@ return [
             'FLAG_ATUACAO_HUMANIDADES' => 0,
             'PESSOA_FISICA' => 'Pessoa Física',
             'PESSOA_JURIDICA' => 'Pessoa Jurídica',
-            'COLETIVO' => 'Coletivo', 
+            'COLETIVO' => 'Coletivo',
+            'DIR_CSV' => 'csv4792.csv', 
         ],
         '4793' => [
             'TIPO_PROPONENTE' => 'field_1215',
@@ -189,7 +193,7 @@ return [
             'NUMERO_INSTRUMENTO' => '',
             'ANO_INSTRUMENTO' => '',
             'CPF' => 'field_1238',
-            'SEXO' => 'field_1225',
+            'SEXO' => 'csvMap',
             'CNPJ' => '',
             'FLAG_CAD_ESTADUAL' => 0,            
             'FLAG_CAD_MUNICIPAL' => 1,            
@@ -209,7 +213,8 @@ return [
             'FLAG_ATUACAO_HUMANIDADES' => 0,
             'PESSOA_FISICA' => 'Pessoa Física',
             'PESSOA_JURIDICA' => 'Pessoa Jurídica',
-            'COLETIVO' => 'Coletivo', 
+            'COLETIVO' => 'Coletivo',
+            'DIR_CSV' => 'csv4793.csv',
         ],
         '4794' => [
             'TIPO_PROPONENTE' => null,
@@ -217,7 +222,7 @@ return [
             'NUMERO_INSTRUMENTO' => '',
             'ANO_INSTRUMENTO' => '',
             'CPF' => 'field_1251',
-            'SEXO' => 'field_1253',
+            'SEXO' => 'csvMap',
             'CNPJ' => 'field_1242',
             'FLAG_CAD_ESTADUAL' => 0,            
             'FLAG_CAD_MUNICIPAL' => 1,            
@@ -237,7 +242,8 @@ return [
             'FLAG_ATUACAO_HUMANIDADES' => 0,
             'PESSOA_FISICA' => 'Pessoa Física',
             'PESSOA_JURIDICA' => 'Pessoa Jurídica',
-            'COLETIVO' => 'Coletivo', 
+            'COLETIVO' => 'Coletivo',
+            'DIR_CSV' => 'csv4794.csv', 
         ],
         '4795' => [
             'TIPO_PROPONENTE' => 'field_1294',
@@ -245,7 +251,7 @@ return [
             'NUMERO_INSTRUMENTO' => '',
             'ANO_INSTRUMENTO' => '',
             'CPF' => 'field_1291',
-            'SEXO' => 'field_1286',
+            'SEXO' => 'csvMap',
             'CNPJ' => 'field_1279',
             'FLAG_CAD_ESTADUAL' => 0,            
             'FLAG_CAD_MUNICIPAL' => 1,            
@@ -265,12 +271,14 @@ return [
             'FLAG_ATUACAO_HUMANIDADES' => 0,
             'PESSOA_FISICA' => 'Pessoa Física',
             'PESSOA_JURIDICA' => 'Pessoa Jurídica - MEI',
-            'COLETIVO' => 'Coletivo', 
+            'COLETIVO' => 'Coletivo',
+            'DIR_CSV' => 'csv4795.csv',
         ],
         'depara_sexo' => [
-            'Mulher cis' => 2,
-            'Homem cis' => 1,
-            'Transgênero' => 1
+            'MASCULINO' => 1,
+            'FEMININO' => 2,
+            'Masculino' => 1,
+            'Feminino' => 2       
         ]
         
         

@@ -1769,7 +1769,7 @@ class Controller extends \MapasCulturais\Controllers\Registration
         $opportunities = $csv_config['opportunities'];
         $status = $csv_config['parameters_csv_default']['status'];
         $header = $csv_config['header'];
-
+        
         /**
          * Recebe e verifica os dados contidos no endpoint
          * https://localhost:8080/dataprev_inciso2/export/opportunity:2/from:2020-09-01/to:2020-09-30/
@@ -1857,38 +1857,38 @@ class Controller extends \MapasCulturais\Controllers\Registration
             ]);
             $registrations = $query->getResult();
         }
-
+         //$registrations = $this->filterRegistrations($registrations);   
       
         
         $opp = $opportunities[$opportunity_id];
         
+        
         $mapping = [
-            'TIPO_INSTRUMENTO' => '',
-            'NUMERO_INSTRUMENTO' => '',
-            'ANO_INSTRUMENTO' => '',
+            'TIPO_INSTRUMENTO' => '1',
+            'NUMERO_INSTRUMENTO' => '24',
+            'ANO_INSTRUMENTO' => '2020',
             'CPF' => function($registrations) use ($opp, $app){
                 $field_temp = $opp['TIPO_PROPONENTE'];
                 $field_id = $opp['CPF'];
                 if($field_temp){
-                
+                    
                     if(trim($registrations->$field_temp) === trim($opp['PESSOA_FISICA']) || trim($registrations->$field_temp) === trim($opp['COLETIVO'])){
-                        return $this->normalizeString($registrations->$field_id);
+                        $result = $this->normalizeString(str_pad($registrations->$field_id, 11, 0));
+                        return substr($result, 0, 11);
                     }else{
-                        return 0;
+                        return null;
                     }
                 }else{ 
-                    return $this->normalizeString($registrations->$field_id);
+                    $result = $this->normalizeString(str_pad($registrations->$field_id, 11, 0));
+                    return substr($result, 0, 11);
                 }
                 
             },
-            'SEXO' => function($registrations) use ($opp, $app){                
+            'SEXO' => function($registrations) use ($opp, $app, $opportunities){                
                 $field_temp = $opp['TIPO_PROPONENTE'];
                 $field_id = $opp['SEXO'];
-                if($field_temp){
-                    if(trim($registrations->$field_temp) === trim($opp['PESSOA_FISICA']) || trim($registrations->$field_temp) === trim($opp['COLETIVO'])){                     
-                        
-                        if($field_id == 'csvMap'){
-                            $filename = $opp['DIR_CSV'];
+                    if($field_id == 'csvMap'){
+                            $filename = PRIVATE_FILES_PATH.'LAB/csv/'. $opp['DIR_CSV'];
 
                             $stream = fopen($filename, "r");
 
@@ -1900,10 +1900,13 @@ class Controller extends \MapasCulturais\Controllers\Registration
 
                             $stmt = (new Statement());
                             $results = $stmt->process($csv);
-                        
+                                                   
                             foreach($results as $key_a => $a){
+                                
                                 foreach($a as $key => $b){
+                                    
                                     if($a['NUM_INSCRICAO'] === $registrations->number){
+                                        
                                         return $this->normalizeString($a['SEXO']);
                                     }
                                 }
@@ -1911,19 +1914,16 @@ class Controller extends \MapasCulturais\Controllers\Registration
                         }else{                            
                             return $this->normalizeString($registrations->$field_id);
                         }
-                    }
-                }else{
-                    return $this->normalizeString($registrations->$field_id);
-                }
             },
             'CNPJ' => function($registrations) use ($opp, $app){
                 $field_temp = $opp['TIPO_PROPONENTE'];
                 $field_id = $opp['CNPJ'];
                 if($field_temp){
                     if(trim($registrations->$field_temp) == trim($opp['PESSOA_JURIDICA'])){
-                        return $this->normalizeString($registrations->$field_id);
+                        $result = $this->normalizeString(str_pad($registrations->$field_id, 14, 0));
+                        return substr($result, 0, 14);
                     }else{
-                        return 0;
+                        return null;
                     }
                 }else{
                     //return $this->normalizeString($registrations->$field_id);
@@ -2048,14 +2048,15 @@ class Controller extends \MapasCulturais\Controllers\Registration
                     $csv_data[$key_registration][$key_mapping] = $field($registration);
 
                 }elseif(is_string($field) && strlen($field) > 0){
-                    $csv_data[$key_registration][$key_mapping] = $registration->$field;
+                    $csv_data[$key_registration][$key_mapping] = $field;
 
                 }else{
                     $csv_data[$key_registration][$key_mapping] = $field;
                 }
             }
+   
         }
-
+        
         $file_name = 'inciso3-'.$opportunity_id.'-' . md5(json_encode($csv_data)) . '.csv';
 
         $dir = PRIVATE_FILES_PATH . 'aldirblanc/inciso3/';
