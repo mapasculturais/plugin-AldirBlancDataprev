@@ -26,6 +26,25 @@ class Plugin extends \AldirBlanc\PluginValidador
 
         $plugin = $app->plugins['AldirBlanc'];
 
+        $user = $this->getUser();
+
+        $app->hook('opportunity.registrations.reportCSV', function($opportunity, $registrations, &$header, &$body) use($app, $user) {
+            
+            $_evaluations = $app->repo('RegistrationEvaluation')->findBy(['user' => $user, 'registration' => $registrations]);
+
+            $evaluations = [];
+            foreach($_evaluations as $eval) {
+                $evaluations[$eval->registration->number] = $eval->evaluationData->obs;
+            }
+
+
+            $header[] = 'Dataprev';
+            
+            foreach($body as $i => $line){
+                $body[$i][] = $evaluations[$line[0]] ?? null;
+            }
+        });
+
         //botao de export csv
         $app->hook('template(opportunity.single.header-inscritos):end', function () use($plugin, $app){
             $inciso1Ids = [$plugin->config['inciso1_opportunity_id']];
