@@ -1749,6 +1749,344 @@ class Controller extends \MapasCulturais\Controllers\Registration
         }
     }
 
+    /**
+     * Exportador para o inciso 3
+     *Implementa o sistema de exportação para a lei AldirBlanc no inciso 3
+     * 
+     */
+    public function ALL_export_inciso3()
+    {
+        //Seta o timeout
+        ini_set('max_execution_time', 0);
+        ini_set('memory_limit', '1228M');
+
+        //garante que o usuário esteja autenticado
+        $this->requireAuthentication();
+        $app = App::i(); 
+
+        //Carrega os dados de configurações do inciso 3
+        $csv_config = $this->config['csv_inciso3'];
+        $opportunities = $csv_config['opportunities'];
+        $status = $csv_config['parameters_csv_default']['status'];
+        $header = $csv_config['header'];
+        
+        /**
+         * Recebe e verifica os dados contidos no endpoint
+         * https://localhost:8080/dataprev_inciso2/export/opportunity:2/from:2020-09-01/to:2020-09-30/
+         * @var string $startDate
+         * @var string $finishDate
+         * @var \DateTime $date
+         */
+        $getData = false;
+        if (!empty($this->data)) {
+
+            if (isset($this->data['from']) && isset($this->data['to'])) {
+
+                if (!empty($this->data['from']) && !empty($this->data['to'])) {
+                    if (!preg_match("/^[0-9]{4}-[0-9]{1,2}-[0-9]{1,2}$/", $this->data['from']) ||
+                        !preg_match("/^[0-9]{4}-[0-9]{1,2}-[0-9]{1,2}$/", $this->data['to'])) {
+
+                        throw new \Exception("O formato da data é inválido.");
+
+                    } else {
+                        //Data ínicial
+                        $startDate = new DateTime($this->data['from']);
+                        $startDate = $startDate->format('Y-m-d 00:00');
+
+                        //Data final
+                        $finishDate = new DateTime($this->data['to']);
+                        $finishDate = $finishDate->format('Y-m-d 23:59');
+                    }
+                    $getData = true;
+                }
+
+            }
+            
+
+            //Pega a oportunidade do endpoint
+            if (!isset($this->data['opportunity']) || empty($this->data['opportunity'])) {
+                throw new Exception("Informe a oportunidade! Ex.: opportunity:2");
+
+            } elseif (!is_numeric($this->data['opportunity'])) {
+                throw new Exception("Oportunidade inválida");
+
+            } else {
+                $opportunity_id = $this->data['opportunity'];
+            }
+
+            
+        } else {
+            throw new Exception("Informe a oportunidade! Ex.: opportunity:2");
+
+        }       
+        
+        $opportunity = $app->repo('Opportunity')->find($opportunity_id);
+        $this->registerRegistrationMetadata($opportunity);
+
+        //Bloqueia o acesso a oportunidade caso usuário não tenha o acesso devido
+        if (!$opportunity->canUser('@control')) {
+            echo "Não autorizado acesso a oportunidade " . $opportunity_id;
+            die();
+        }
+
+        if($getData){
+            $dql = "SELECT e FROM MapasCulturais\Entities\Registration e
+            WHERE e.status = :status AND 
+            e.opportunity = :opportunity_Id AND
+            e.sentTimestamp >=:startDate AND
+            e.sentTimestamp <= :finishDate "; 
+            
+            $query = $app->em->createQuery($dql);
+    
+            $query->setParameters([
+                'opportunity_Id' => $opportunity_id,
+                'status' => $status,
+                'startDate' => $startDate,
+                'finishDate' => $finishDate
+            ]);
+            $registrations = $query->getResult();
+        }else{
+            $dql = "SELECT e FROM MapasCulturais\Entities\Registration e
+            WHERE e.status = :status AND e.opportunity = :opportunity_Id"; 
+            
+            $query = $app->em->createQuery($dql);
+    
+            $query->setParameters([
+                'opportunity_Id' => $opportunity_id,
+                'status' => $status,
+            ]);
+            $registrations = $query->getResult();
+        }
+         //$registrations = $this->filterRegistrations($registrations);   
+      
+        
+        $opp = $opportunities[$opportunity_id];
+        
+        
+        $mapping = [
+            'TIPO_INSTRUMENTO' => '1',
+            'NUMERO_INSTRUMENTO' => '24',
+            'ANO_INSTRUMENTO' => '2020',
+            'CPF' => function($registrations) use ($opp, $app){
+                $field_temp = $opp['TIPO_PROPONENTE'];
+                $field_id = $opp['CPF'];
+                if($field_temp){
+                    
+                    if(trim($registrations->$field_temp) === trim($opp['PESSOA_FISICA']) || trim($registrations->$field_temp) === trim($opp['COLETIVO'])){
+                        $result = $this->normalizeString(str_pad($registrations->$field_id, 11, 0));
+                        return substr($result, 0, 11);
+                    }else{
+                        return null;
+                    }
+                }else{ 
+                    $result = $this->normalizeString(str_pad($registrations->$field_id, 11, 0));
+                    return substr($result, 0, 11);
+                }
+                
+            },
+            'SEXO' => function($registrations) use ($opp, $app, $opportunities){                
+                $field_temp = $opp['TIPO_PROPONENTE'];
+                $field_id = $opp['SEXO'];
+                    if($field_id == 'csvMap'){
+                            $filename = PRIVATE_FILES_PATH.'LAB/csv/'. $opp['DIR_CSV'];
+
+                            $stream = fopen($filename, "r");
+
+                            $csv = Reader::createFromStream($stream);
+
+                            $csv->setDelimiter(";");
+
+                            $header_temp = $csv->setHeaderOffset(0);
+
+                            $stmt = (new Statement());
+                            $results = $stmt->process($csv);
+                                                   
+                            foreach($results as $key_a => $a){
+                                
+                                foreach($a as $key => $b){
+                                    
+                                    if($a['NUM_INSCRICAO'] === $registrations->number){
+                                        
+                                        return $this->normalizeString($a['SEXO']);
+                                    }
+                                }
+                            }
+                        }else{                            
+                            return $this->normalizeString($registrations->$field_id);
+                        }
+            },
+            'CNPJ' => function($registrations) use ($opp, $app){
+                $field_temp = $opp['TIPO_PROPONENTE'];
+                $field_id = $opp['CNPJ'];
+                if($field_temp){
+                    if(trim($registrations->$field_temp) == trim($opp['PESSOA_JURIDICA'])){
+                        $result = $this->normalizeString(str_pad($registrations->$field_id, 14, 0));
+                        return substr($result, 0, 14);
+                    }else{
+                        return null;
+                    }
+                }else{
+                    //return $this->normalizeString($registrations->$field_id);
+                }
+            },
+            'FLAG_CAD_ESTADUAL' => function($registrations) use ($opp, $app){                    
+                return $opp['FLAG_CAD_ESTADUAL'] ? 1 : 0;
+            },
+            'SISTEMA_CAD_ESTADUAL' => function($registrations) use ($opp, $app){                    
+                return $opp['FLAG_CAD_ESTADUAL'] ? $app->view->dict('site: name', false) : '';
+
+            },
+            'IDENTIFICADOR_CAD_ESTADUAL' => function($registrations) use ($opp, $app){                    
+                return $opp['FLAG_CAD_ESTADUAL'] ?  $registrations->number : '';
+
+            },
+            'FLAG_CAD_MUNICIPAL' => function($registrations) use ($opp, $app){                    
+                return $opp['FLAG_CAD_MUNICIPAL'] ? 1 : 0;
+            },
+            'SISTEMA_CAD_MUNICIPAL' => function($registrations) use ($opp, $app){                    
+                return $opp['FLAG_CAD_MUNICIPAL'] ? $app->view->dict('site: name', false) : '';
+
+            },
+            'IDENTIFICADOR_CAD_MUNICIPAL' => function($registrations) use ($opp, $app){                    
+                return $opp['FLAG_CAD_MUNICIPAL'] ? $registrations->number : '';
+
+            },
+            'FLAG_CAD_DISTRITAL' => function($registrations) use ($opp, $app){                    
+                return $opp['FLAG_CAD_DISTRITAL'] ? 1 : 0;
+
+            },
+            'SISTEMA_CAD_DISTRITAL' => function($registrations) use ($opp, $app){                    
+                return $opp['FLAG_CAD_DISTRITAL'] ? $app->view->dict('site: name', false) : '';
+
+            },
+            'IDENTIFICADOR_CAD_DISTRITAL' => function($registrations) use ($opp, $app){                    
+                return $opp['FLAG_CAD_DISTRITAL'] ? $registrations->number : '';
+
+            },
+            'FLAG_CAD_NA_PONTOS_PONTOES' => function($registrations) use ($opp, $app){                    
+                return 0;
+
+            },
+            'FLAG_CAD_ES_PONTOS_PONTOES' => function($registrations) use ($opp, $app){                    
+                return 0;
+
+            },
+            'SISTEMA_CAD_ES_PONTOS_PONTOES' => function($registrations) use ($opp, $app){                    
+                return '';
+
+            },
+            'IDENTIFICADOR_CAD_ES_PONTOS_PONTOES' => function($registrations) use ($opp, $app){                    
+                return 0;
+
+            },
+            'FLAG_CAD_SNIIC' => function($registrations) use ($opp, $app){                    
+                return 0;
+
+            },
+            'SISTEMA_CAD_SNIIC' => function($registrations) use ($opp, $app){                    
+                return '';
+
+            },
+            'IDENTIFICADOR_CAD_SNIIC' => function($registrations) use ($opp, $app){                    
+                return '';
+
+            },
+            'FLAG_CAD_SALIC' => function($registrations) use ($opp, $app){                    
+                return 0;
+
+            },
+            'FLAG_CAD_SICAB' => function($registrations) use ($opp, $app){                    
+                return 0;
+
+            },
+            'FLAG_CAD_OUTROS' => function($registrations) use ($opp, $app){                    
+                return 0;
+
+            },
+            'SISTEMA_CAD_OUTROS' => function($registrations) use ($opp, $app){                    
+                return '';
+
+            },
+            'IDENTIFICADOR_CAD_OUTROS' => function($registrations) use ($opp, $app){                    
+                return '';
+
+            },
+            'FLAG_ATUACAO_ARTES_CENICAS' => function($registrations) use ($opp, $app){                    
+                return 0;
+
+            },
+            'FLAG_ATUACAO_AUDIOVISUAL' => function($registrations) use ($opp, $app){                    
+                return 0;
+
+            },
+            'FLAG_ATUACAO_MUSICA' => function($registrations) use ($opp, $app){                    
+                return 0;
+
+            },
+            'FLAG_ATUACAO_ARTES_VISUAIS' => function($registrations) use ($opp, $app){                    
+                return 0;
+
+            },
+            'FLAG_ATUACAO_PATRIMONIO_CULTURAL' => function($registrations) use ($opp, $app){                    
+                return 0;
+
+            },
+            'FLAG_ATUACAO_MUSEUS_MEMORIA' => function($registrations) use ($opp, $app){                    
+                return 0;
+
+            },
+            'FLAG_ATUACAO_HUMANIDADES' => function($registrations) use ($opp, $app){                    
+                return 0;
+
+            }
+        ];
+        
+        $csv_data = [];
+        foreach ($registrations as $key_registration => $registration) {
+            foreach ($mapping as $key_mapping => $field) {
+                if (is_callable($field)) {
+                    $csv_data[$key_registration][$key_mapping] = $field($registration);
+
+                }elseif(is_string($field) && strlen($field) > 0){
+                    $csv_data[$key_registration][$key_mapping] = $field;
+
+                }else{
+                    $csv_data[$key_registration][$key_mapping] = $field;
+                }
+            }
+   
+        }
+        
+        $file_name = 'inciso3-'.$opportunity_id.'-' . md5(json_encode($csv_data)) . '.csv';
+
+        $dir = PRIVATE_FILES_PATH . 'aldirblanc/inciso3/';
+
+        $patch = $dir . $file_name;
+
+        if (!is_dir($dir)) {
+            mkdir($dir, 0700, true);
+        }
+
+        $stream = fopen($patch, 'w');
+
+        $csv = Writer::createFromStream($stream);
+
+        $csv->insertOne($header);
+
+        foreach ($csv_data as $key_csv => $csv_line) {
+            $csv->insertOne($csv_line);
+        }
+
+        header('Content-Type: application/csv');
+        header('Content-Disposition: attachment; filename=' . $file_name);
+        header('Pragma: no-cache');
+        readfile($patch);
+
+          
+            
+        
+    }
+
     public function GET_import() {
         $this->requireAuthentication();
 
@@ -2260,7 +2598,7 @@ class Controller extends \MapasCulturais\Controllers\Registration
                 }
             }
         }
-    }
+        }
 
 
         //Define se o requerente esta apto ou inapto levando em consideração as diretrizes de negocio
