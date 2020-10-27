@@ -26,6 +26,7 @@ class Plugin extends \AldirBlanc\PluginValidador
         $app = App::i();
 
         $plugin = $app->plugins['AldirBlanc'];
+        $plugin_validador = $this;
 
         $user = $this->getUser();
 
@@ -47,7 +48,7 @@ class Plugin extends \AldirBlanc\PluginValidador
         });
 
         //botao de export csv
-        $app->hook('template(opportunity.single.header-inscritos):end', function () use($plugin, $app){
+        $app->hook('template(opportunity.single.header-inscritos):end', function () use($plugin, $app, $plugin_validador){
             $inciso1Ids = [$plugin->config['inciso1_opportunity_id']];
             $inciso2Ids = array_values($plugin->config['inciso2_opportunity_ids']);
             $inciso3Ids = is_array($plugin->config['inciso3_opportunity_ids']) ? $plugin->config['inciso3_opportunity_ids'] : [];
@@ -69,7 +70,8 @@ class Plugin extends \AldirBlanc\PluginValidador
                     $inciso = 3;
 
                 }
-                $this->part('aldirblanc/csv-button', ['inciso' => $inciso, 'opportunity' => $opportunity]);
+                
+                $this->part('aldirblanc/csv-button', ['inciso' => $inciso, 'opportunity' => $opportunity, 'plugin_validador' => $plugin_validador]);
             }
         });
 

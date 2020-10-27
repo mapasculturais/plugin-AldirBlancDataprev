@@ -1,6 +1,8 @@
 <?php 
 use MapasCulturais\i;
 
+$slug = $plugin_validador->getSlug();
+
 if ($inciso == 1){
     $route = MapasCulturais\App::i()->createUrl('dataprev', 'export_inciso1');    
     ?>
