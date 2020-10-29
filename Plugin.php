@@ -117,7 +117,7 @@ class Plugin extends \AldirBlanc\PluginValidador
             'default_value' => '{}'
         ]);
 
-        $file_group_definition = new \MapasCulturais\Definitions\FileGroup('dataprev', ['^text/csv$'], 'O arquivo enviado não é um csv.',false,null,true);
+        $file_group_definition = new \MapasCulturais\Definitions\FileGroup('dataprev');
         $app->registerFileGroup('opportunity', $file_group_definition);
 
         parent::register();
