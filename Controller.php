@@ -572,8 +572,37 @@ class Controller extends \MapasCulturais\Controllers\Registration
         $this->requireAuthentication();
         $app = App::i();
         
-        //Oportunidade que a query deve filtrar
-        $opportunity_id = $this->config['inciso2_opportunity_ids'];
+        $inciso2_opportunity_ids = $this->config['inciso2_opportunity_ids'];
+        
+        $opportunity_ids = [];
+
+        //Oportunidades que a query deve filtrar
+        $opportunities = [];
+        if (isset($this->data['project'])) {
+            $project = $app->repo('Project')->find($this->data['project']);
+
+            $project_ids = array_merge([$project->id], $project->getChildrenIds());
+
+            $opportunities = $app->repo('ProjectOpportunity')->findBy(['ownerEntity' => $project_ids, 'id' => $inciso2_opportunity_ids]);
+
+            $opportunity_ids = array_map(function($opp) { return $opp->id; }, $opportunities);
+            
+        } else if (isset($this->data['opportunity'])) {
+            if (!in_array($this->data['opportunity'], $inciso2_opportunity_ids)) {
+                echo "a oportunidade de id {$this->data['opportunity']} não é uma oportunidade da lei Aldir Blanc";
+                die;
+            }
+            $opportunity_ids = [$this->data['opportunity']];
+            $opportunities = [$app->repo('Opportunity')->find($this->data['opportunity'])];
+        } else {
+            echo 'informe a oportunidede (opportunity=id) ou o projeto (project=id)';
+            die;
+        }
+
+        if (empty($opportunity_ids)) {
+            echo 'nenhuma oportunidade da válida encontrada';
+            die;
+        }
 
         //Satatus que a query deve filtrar
         $status = 1;
@@ -616,17 +645,6 @@ class Controller extends \MapasCulturais\Controllers\Registration
             //Pega o status do endpoint
             $status = isset($this->data['status']) && is_numeric($this->data['status']) ? $this->data['status'] : 1;
 
-            //Pega a oportunidade do endpoint
-            if (!isset($this->data['opportunity']) || empty($this->data['opportunity'])) {
-                throw new Exception("Informe a oportunidade! Ex.: opportunity:2");
-
-            } elseif (!is_numeric($this->data['opportunity']) || !in_array($this->data['opportunity'], $this->config['inciso2_opportunity_ids'])) {
-                throw new Exception("Oportunidade inválida");
-
-            } else {
-                $opportunity_id = $this->data['opportunity'];
-            }
-
             if (isset($this->data['type']) && preg_match("/^[a-z]{3,4}$/", $this->data['type'])) {
                 $type = $this->data['type'];
 
@@ -640,15 +658,17 @@ class Controller extends \MapasCulturais\Controllers\Registration
         }
 
         /**
-         * Pega a oprtunidade
+         * Pega a oprtunidade se ainda não pegou
          */
-        $opportunity = $app->repo('Opportunity')->find($opportunity_id);
-        $this->registerRegistrationMetadata($opportunity);
+        foreach($opportunities as $opp) {
+            $this->registerRegistrationMetadata($opp);
 
-        if (!$opportunity->canUser('@control')) {
-            echo "Não autorizado";
-            die();
+            if (!$opp->canUser('@control')) {
+                echo "Não autorizado a exportar da oportunidade {$opp->id}";
+                die;
+            }
         }
+
 
         /**
          * Busca os registros no banco de dados
@@ -668,11 +688,11 @@ class Controller extends \MapasCulturais\Controllers\Registration
                 e.sentTimestamp >=:startDate AND
                 e.sentTimestamp <= :finishDate AND
                 e.status = :status AND
-                e.opportunity = :opportunity_Id";
+                e.opportunity IN (:opportunities_id)";
 
             $query = $app->em->createQuery($dql);
             $query->setParameters([
-                'opportunity_Id' => $opportunity_id,
+                'opportunities_id' => $opportunity_ids,
                 'startDate' => $startDate,
                 'finishDate' => $finishDate,
                 'status' => $status,
@@ -687,11 +707,11 @@ class Controller extends \MapasCulturais\Controllers\Registration
                 MapasCulturais\Entities\Registration e
             WHERE
                 e.status = :status AND
-                e.opportunity = :opportunity_Id";
+                e.opportunity IN(:opportunities_id)";
 
             $query = $app->em->createQuery($dql);
             $query->setParameters([
-                'opportunity_Id' => $opportunity_id,
+                'opportunities_id' => $opportunity_ids,
                 'status' => $status,
             ]);
             $registrations = $query->getResult();
@@ -712,983 +732,989 @@ class Controller extends \MapasCulturais\Controllers\Registration
         $atuacoes = $this->config['csv_inciso2']['atuacoes-culturais'];
         $category = $this->config['csv_inciso2']['category'];
 
-        /**
-         * Mapeamento de fielsds_id pelo label do campo
-         */
-        foreach ($opportunity->registrationFieldConfigurations as $field) {
-            $field_labelMap["field_" . $field->id] = trim($field->title);
-
-        }
-
-        /**
-         * Faz o mapeamento do field_id pelo label do campo para requerentes do tipo CPF
-         *
-         * Esta sendo feito uma comparação de string, coloque no arquivo de configuração
-         * exatamente o texto do label desejado
-         */
-        foreach ($csv_conf['fields_cpf'] as $key_csv_conf => $field) {
-            if (is_array($field)) {
-                $value = array_unique($field);
-
-                if (count($value) == 1) {
-                    foreach ($field as $key => $value) {
-                        $field_temp = array_keys($field_labelMap, $value);
-                    }
-
-                } else {
-
-                    $field_temp = [];
-                    foreach ($field as $key => $value) {
-                        $field_temp[] = array_search(trim($value), $field_labelMap);
-
-                    }
-
-                }
-                $fields_cpf[$key_csv_conf] = $field_temp;
-
-            } else {
-                $field_temp = array_search(trim($field), $field_labelMap);
-                $fields_cpf[$key_csv_conf] = $field_temp ? $field_temp : $field;
-
-            }
-        }
-
-        /**
-         * Faz o mapeamento do field_id pelo label do campo para requerentes do tipo CPF
-         *
-         * Esta sendo feito uma comparação de string, coloque no arquivo de configuração
-         * exatamente o texto do label desejado
-         */
-        foreach ($csv_conf['fields_cnpj'] as $key_csv_conf => $field) {
-            if (is_array($field)) {
-
-                $value = array_unique($field);
-
-                if (count($value) == 1) {
-                    foreach ($field as $key => $value) {
-                        $field_temp = array_keys($field_labelMap, $value);
-                    }
-
-                } else {
-
-                    $field_temp = [];
-                    foreach ($field as $key => $value) {
-                        $field_temp[] = array_search(trim($value), $field_labelMap);
-
-                    }
-
-                }
-                $fields_cnpj[$key_csv_conf] = $field_temp;
-
-            } else {
-                $field_temp = array_search(trim($field), $field_labelMap);
-                $fields_cnpj[$key_csv_conf] = $field_temp ? $field_temp : $field;
-
-            }
-        }
-
-        /**
-         * Mapeia os fields para um requerente pessoa física
-         */
-        $fields_cpf_ = [
-            'CPF' => function ($registrations) use ($fields_cpf) {
-                $field_id = $fields_cpf['CPF'];
-                return str_replace(['.', '-'], '', $registrations->$field_id);
-
-            },
-            'SEXO' => function ($registrations) use ($fields_cpf) {
-                $field_id = $fields_cpf['SEXO'];
-
-                if ($registrations->$field_id == 'Masculino') {
-                    return 1;
-
-                } else if ($registrations->$field_id == 'Feminino') {
-                    return 2;
-
-                } else {
-                    return 0;
-                }
-
-            },
-            'NOME_ESPACO_CULTURAL' => function ($registrations) use ($fields_cpf) {
-                $field_id = $fields_cpf['NOME_ESPACO_CULTURAL'];
-
-                $result = "";
-                if (is_array($field_id)) {
-                    foreach ($field_id as $value) {
-                        if (!$value) {
-                            continue;
-                        }
-                        if($registrations->$value){
-                            $result = $registrations->$value;
-                            break;
-                        }
-                    }
-                } else {
-                    $result = $registrations->$field_id ? $registrations->$field_id : '';
-
-                }
-
-                return $result;
-            },
-            'FLAG_CAD_ESTADUAL' => function ($registrations) use ($fields_cpf, $inscricoes) {
-                $field_id = $fields_cpf["FLAG_CAD_ESTADUAL"];
-                
-                if($field_id){
-                    return 1;
-                }else{
-                    return 0;
-                }
-            },
-            'SISTEMA_CAD_ESTADUAL' => function ($registrations) use ($fields_cpf, $app, $inscricoes) {
-                return $fields_cpf['FLAG_CAD_ESTADUAL'] ? $app->view->dict('site: name', false) : '';
-            },
-            'IDENTIFICADOR_CAD_ESTADUAL' => function ($registrations) use ($fields_cpf, $inscricoes) {
-                return $fields_cpf['FLAG_CAD_ESTADUAL'] ? $registrations->number : '';
-
-            },
-            'FLAG_CAD_MUNICIPAL' => function ($registrations) use ($fields_cpf, $inscricoes) {
-                $field_id = $fields_cpf["FLAG_CAD_MUNICIPAL"];
-                
-                if($field_id){
-                    return 1;
-                }else{
-                    return 0;
-                }
-                
-            },
-            'SISTEMA_CAD_MUNICIPAL' => function ($registrations) use ($fields_cpf, $app, $inscricoes) {                
-                return $fields_cpf['FLAG_CAD_MUNICIPAL'] ? $app->view->dict('site: name', false) : '';
-
-            },
-            'IDENTIFICADOR_CAD_MUNICIPAL' => function ($registrations) use ($fields_cpf, $inscricoes) {
-                return $fields_cpf['FLAG_CAD_MUNICIPAL'] ? $registrations->number : '';
-            },
-            'FLAG_CAD_DISTRITAL' => function ($registrations) use ($fields_cpf) {
-                $field_id = $fields_cpf["FLAG_CAD_DISTRITAL"];
-                
-                if($field_id){
-                    return 1;
-                }else{
-                    return 0;
-                }
-
-            },
-            'SISTEMA_CAD_DISTRITAL' => function ($registrations) use ($fields_cpf, $app) {
-                return $fields_cpf['FLAG_CAD_DISTRITAL'] ? $app->view->dict('site: name', false) : '';
-
-            },
-            'IDENTIFICADOR_CAD_DISTRITAL' => function ($registrations) use ($fields_cpf) {
-                return $fields_cpf['FLAG_CAD_DISTRITAL'] ? $registrations->number : '';
-
-            },
-            'FLAG_CAD_NA_PONTOS_PONTOES' => function ($registrations) use ($fields_cnpj) {
-                $field_id = $fields_cnpj["FLAG_CAD_NA_PONTOS_PONTOES"];
-
-                $option = 'Cadastro Nacional de Pontos e Pontões de Cultura';
-
-                $result = 0;
-
-                if (is_array($registrations->$field_id)) {
-                    if ($field_id && in_array($option, $registrations->$field_id)) {
-                        $result = 1;
-                    }
-
-                } else {
-                    if ($field_id && $registrations->$field_id == $option) {
-                        $result = 1;
-                    }
-
-                }
-                return $result;
-
-            },
-            'FLAG_CAD_ES_PONTOS_PONTOES' => function ($registrations) use ($fields_cpf) {
-                return 0;
-            },
-            'SISTEMA_CAD_ES_PONTOS_PONTOES' => function ($registrations) use ($fields_cpf) {
-                return '';
-            },
-            'IDENTIFICADOR_CAD_ES_PONTOS_PONTOES' => function ($registrations) use ($fields_cpf) {
-                return '';
-            },
-            'FLAG_CAD_SNIIC' => function ($registrations) use ($fields_cpf, $inscricoes) {
-                $field_id = $fields_cpf["FLAG_CAD_SNIIC"];
-                
-                if($field_id){
-                    return 1;
-                }else{
-                    return 0;
-                }
-
-
-            },
-            'SISTEMA_CAD_SNIIC' => function ($registrations) use ($fields_cpf, $inscricoes, $app) {
-                return $fields_cpf['FLAG_CAD_SNIIC'] ? $app->view->dict('site: name', false) : '';
-
-            },
-            'IDENTIFICADOR_CAD_SNIIC' => function ($registrations) use ($fields_cpf, $inscricoes) {
-                return $fields_cpf['FLAG_CAD_SNIIC'] ? $registrations->number : '';
-            },
-            'FLAG_CAD_SALIC' => function ($registrations) use ($fields_cnpj, $inscricoes) {
-                $field_id = $fields_cnpj["FLAG_CAD_SALIC"];
-
-                $option = $inscricoes['salic'];
-
-                $result = 0;
-
-                if (is_array($registrations->$field_id)) {
-                    if ($field_id && in_array($option, $registrations->$field_id)) {
-                        $result = 1;
-                    }
-
-                } else {
-                    if ($field_id && $registrations->$field_id == $option) {
-                        $result = 1;
-                    }
-
-                }
-
-                return $result;
-            },
-            'FLAG_CAD_SICAB' => function ($registrations) use ($fields_cnpj, $inscricoes) {
-                $field_id = $fields_cnpj["FLAG_CAD_SICAB"];
-
-                $option = $inscricoes['sicab'];
-
-                $result = 0;
-
-                if (is_array($registrations->$field_id)) {
-                    if ($field_id && in_array($option, $registrations->$field_id)) {
-                        $result = 1;
-                    }
-
-                } else {
-                    if ($field_id && $registrations->$field_id == $option) {
-                        $result = 1;
-                    }
-
-                }
-
-                return $result;
-
-            },
-            'FLAG_CAD_OUTROS' => function ($registrations) use ($fields_cnpj, $inscricoes) {
-                return 0;
-
-            },
-            'SISTEMA_CAD_OUTROS' => function ($registrations) use ($fields_cnpj, $inscricoes) {
-                return "";
-
-            },
-            'IDENTIFICADOR_CAD_OUTROS' => function ($registrations) use ($fields_cnpj, $inscricoes) {
-                return "";
-
-            },
-            'FLAG_ATUACAO_ARTES_CENICAS' => function ($registrations) use ($csv_conf, $fields_cnpj, $atuacoes, $category) {
-                $field_temp = $fields_cnpj['FLAG_ATUACAO_ARTES_CENICAS'];
-
-                if (is_array($field_temp)) {
-
-                    $field_id = [];
-                    foreach (array_filter($field_temp) as $key => $value) {
-                        if (!$field_id) {
-                            if ($registrations->$value) {
-                                $field_id = $registrations->$value;
-
-                            } else {
-                                $field_id = [];
-
-                            }
-                        }
-                    }
-                } else {
-                    $field_id = $registrations->$field_temp;
-                }
-
-                $options = $atuacoes['artes-cenicas'];
-
-                $result = 0;
-                foreach ($options as $value) {
-
-                    if (in_array($value, $field_id)) {
-                        $result = 1;
-                    }
-                }
-
-                return $result;
-            },
-            'FLAG_ATUACAO_AUDIOVISUAL' => function ($registrations) use ($csv_conf, $fields_cnpj, $atuacoes) {
-                $field_temp = $fields_cnpj['FLAG_ATUACAO_AUDIOVISUAL'];
-
-                if (is_array($field_temp)) {
-
-                    $field_id = [];
-                    foreach (array_filter($field_temp) as $key => $value) {
-                        if (!$field_id) {
-                            if ($registrations->$value) {
-                                $field_id = $registrations->$value;
-
-                            } else {
-                                $field_id = [];
-
-                            }
-                        }
-                    }
-                } else {
-                    $field_id = $registrations->$field_temp;
-                }
-
-                $options = $atuacoes['audiovisual'];
-
-                $result = 0;
-                foreach ($options as $value) {
-
-                    if (in_array($value, $field_id)) {
-                        $result = 1;
-                    }
-                }
-
-                return $result;
-
-            },
-            'FLAG_ATUACAO_MUSICA' => function ($registrations) use ($csv_conf, $fields_cnpj, $atuacoes) {
-                $field_temp = $fields_cnpj['FLAG_ATUACAO_MUSICA'];
-
-                if (is_array($field_temp)) {
-
-                    $field_id = [];
-                    foreach (array_filter($field_temp) as $key => $value) {
-                        if (!$field_id) {
-                            if ($registrations->$value) {
-                                $field_id = $registrations->$value;
-
-                            } else {
-                                $field_id = [];
-
-                            }
-                        }
-                    }
-                } else {
-                    $field_id = $registrations->$field_temp;
-                }
-
-                $options = $atuacoes['musica'];
-
-                $result = 0;
-                foreach ($options as $value) {
-
-                    if (in_array($value, $field_id)) {
-                        $result = 1;
-                    }
-                }
-
-                return $result;
-            },
-            'FLAG_ATUACAO_ARTES_VISUAIS' => function ($registrations) use ($csv_conf, $fields_cnpj, $atuacoes) {
-                $field_temp = $fields_cnpj['FLAG_ATUACAO_ARTES_VISUAIS'];
-
-                if (is_array($field_temp)) {
-
-                    $field_id = [];
-                    foreach (array_filter($field_temp) as $key => $value) {
-                        if (!$field_id) {
-                            if ($registrations->$value) {
-                                $field_id = $registrations->$value;
-
-                            } else {
-                                $field_id = [];
-
-                            }
-                        }
-                    }
-                } else {
-                    $field_id = $registrations->$field_temp;
-                }
-
-                $options = $atuacoes['artes-visuais'];
-
-                $result = 0;
-                foreach ($options as $value) {
-
-                    if (in_array($value, $field_id)) {
-                        $result = 1;
-                    }
-                }
-
-                return $result;
-
-            },
-            'FLAG_ATUACAO_PATRIMONIO_CULTURAL' => function ($registrations) use ($csv_conf, $fields_cnpj, $atuacoes) {
-                $field_temp = $fields_cnpj['FLAG_ATUACAO_PATRIMONIO_CULTURAL'];
-
-                if (is_array($field_temp)) {
-
-                    $field_id = [];
-                    foreach (array_filter($field_temp) as $key => $value) {
-                        if (!$field_id) {
-                            if ($registrations->$value) {
-                                $field_id = $registrations->$value;
-
-                            } else {
-                                $field_id = [];
-
-                            }
-                        }
-                    }
-                } else {
-                    $field_id = $registrations->$field_temp;
-                }
-
-                $options = $atuacoes['patrimonio-cultural'];
-
-                $result = 0;
-                foreach ($options as $value) {
-
-                    if (in_array($value, $field_id)) {
-                        $result = 1;
-                    }
-                }
-
-                return $result;
-            },
-            'FLAG_ATUACAO_MUSEUS_MEMORIA' => function ($registrations) use ($csv_conf, $fields_cnpj, $atuacoes) {
-                $field_temp = $fields_cnpj['FLAG_ATUACAO_MUSEUS_MEMORIA'];
-
-                if (is_array($field_temp)) {
-
-                    $field_id = [];
-                    foreach (array_filter($field_temp) as $key => $value) {
-                        if (!$field_id) {
-                            if ($registrations->$value) {
-                                $field_id = $registrations->$value;
-
-                            } else {
-                                $field_id = [];
-
-                            }
-                        }
-                    }
-                } else {
-                    $field_id = $registrations->$field_temp;
-                }
-
-                $options = $atuacoes['museu-memoria'];
-
-                $result = 0;
-                foreach ($options as $value) {
-
-                    if (in_array($value, $field_id)) {
-                        $result = 1;
-                    }
-                }
-
-                return $result;
-            },
-            'FLAG_ATUACAO_HUMANIDADES' => function ($registrations) use ($csv_conf, $fields_cnpj, $atuacoes) {
-                $field_temp = $fields_cnpj['FLAG_ATUACAO_HUMANIDADES'];
-
-                if (is_array($field_temp)) {
-
-                    $field_id = [];
-                    foreach (array_filter($field_temp) as $key => $value) {
-                        if (!$field_id) {
-                            if ($registrations->$value) {
-                                $field_id = $registrations->$value;
-
-                            } else {
-                                $field_id = [];
-
-                            }
-                        }
-                    }
-                } else {
-                    $field_id = $registrations->$field_temp;
-                }
-
-                $options = $atuacoes['humanidades'];
-
-                $result = 0;
-                foreach ($options as $value) {
-
-                    if (in_array($value, $field_id)) {
-                        $result = 1;
-                    }
-                }
-
-                return $result;
-            },
-        ];
-
-        /**
-         * Mapeia os fields para um requerente pessoa jurídica
-         */
-        $fields_cnpj_ = [
-            'CNPJ' => function ($registrations) use ($fields_cnpj) {
-                $field_temp = $fields_cnpj['CNPJ'];
-                $field_id = null;
-
-                if (is_array($field_temp)) {
-                    foreach ($field_temp as $value) {
-
-                        if ($registrations->$value) {
-                            $field_id = $value;
-                        }
-                    }
-                } else {
-                    $field_id = $field_temp;
-                }
-                if ($field_id){
-                    return str_replace(['.', '-', '/'], '', $registrations->$field_id);
-                } else {
-                    return null;
-                }
-
-            }, 'FLAG_CAD_ESTADUAL' => function ($registrations) use ($fields_cnpj, $inscricoes) {
-                $field_id = $fields_cnpj["FLAG_CAD_ESTADUAL"];
-                
-                if($field_id){
-                    return 1;
-                }else{
-                    return 0;
-                }
-
-            },
-            'SISTEMA_CAD_ESTADUAL' => function ($registrations) use ($fields_cnpj, $app, $inscricoes) {
-                return $fields_cnpj['FLAG_CAD_ESTADUAL'] ? $app->view->dict('site: name', false) : '';
-            },
-            'IDENTIFICADOR_CAD_ESTADUAL' => function ($registrations) use ($fields_cnpj, $inscricoes) {
-                return $fields_cnpj['FLAG_CAD_ESTADUAL'] ? $registrations->number : '';
-
-            },
-            'FLAG_CAD_MUNICIPAL' => function ($registrations) use ($fields_cnpj, $inscricoes) {
-                $field_id = $fields_cnpj["FLAG_CAD_MUNICIPAL"];
-                
-                if($field_id){
-                    return 1;
-                }else{
-                    return 0;
-                }
-
-            },
-            'SISTEMA_CAD_MUNICIPAL' => function ($registrations) use ($fields_cnpj, $inscricoes, $app) {
-                return $fields_cnpj['FLAG_CAD_MUNICIPAL'] ? $app->view->dict('site: name', false) : '';
-
-            },
-            'IDENTIFICADOR_CAD_MUNICIPAL' => function ($registrations) use ($fields_cnpj, $inscricoes) {
-                return $fields_cnpj['FLAG_CAD_MUNICIPAL'] ? $registrations->number : '';
-
-            },
-            'FLAG_CAD_DISTRITAL' => function ($registrations) use ($fields_cnpj) {
-                $field_id = $fields_cnpj["FLAG_CAD_DISTRITAL"];
-                
-                if($field_id){
-                    return 1;
-                }else{
-                    return 0;
-                }
-
-            },
-            'SISTEMA_CAD_DISTRITAL' => function ($registrations) use ($fields_cnpj, $app) {
-                return $fields_cnpj['FLAG_CAD_DISTRITAL'] ? $app->view->dict('site: name', false) : '';
-
-            },
-            'IDENTIFICADOR_CAD_DISTRITAL' => function ($registrations) use ($fields_cnpj) {
-                return $fields_cnpj['FLAG_CAD_DISTRITAL'] ? $registrations->number : '';
-
-            },
-            'FLAG_CAD_NA_PONTOS_PONTOES' => function ($registrations) use ($fields_cnpj) {
-                $field_id = $fields_cnpj["FLAG_CAD_NA_PONTOS_PONTOES"];
-
-                $option = 'Cadastro Nacional de Pontos e Pontões de Cultura';
-
-                $result = 0;
-
-                if (is_array($registrations->$field_id)) {
-                    if ($field_id && in_array($option, $registrations->$field_id)) {
-                        $result = 1;
-                    }
-
-                } else {
-                    if ($field_id && $registrations->$field_id == $option) {
-                        $result = 1;
-                    }
-
-                }
-                return $result;
-
-            },
-            'FLAG_CAD_ES_PONTOS_PONTOES' => function ($registrations) use ($fields_cnpj) {
-                return 0;
-            },
-            'SISTEMA_CAD_ES_PONTOS_PONTOES' => function ($registrations) use ($fields_cnpj) {
-                return "";
-            },
-            'IDENTIFICADOR_CAD_ES_PONTOS_PONTOES' => function ($registrations) use ($fields_cnpj) {
-                return "";
-            },
-            'FLAG_CAD_SNIIC' => function ($registrations) use ($fields_cnpj, $inscricoes) {
-                $field_id = $fields_cnpj["FLAG_CAD_SNIIC"];
-                
-                if($field_id){
-                    return 1;
-                }else{
-                    return 0;
-                }
-
-            },
-            'SISTEMA_CAD_SNIIC' => function ($registrations) use ($fields_cnpj, $inscricoes, $app) {
-                return $fields_cnpj['FLAG_CAD_SNIIC'] ? $app->view->dict('site: name', false) : '';
-
-            },
-            'IDENTIFICADOR_CAD_SNIIC' => function ($registrations) use ($fields_cnpj, $inscricoes) {
-                return $fields_cnpj['FLAG_CAD_SNIIC'] ? $registrations->number : '';
-
-            },
-            'FLAG_CAD_SALIC' => function ($registrations) use ($fields_cnpj, $inscricoes) {
-                $field_id = $fields_cnpj["FLAG_CAD_SALIC"];
-
-                $option = $inscricoes['salic'];
-
-                $result = 0;
-
-                if (is_array($registrations->$field_id)) {
-                    if ($field_id && in_array($option, $registrations->$field_id)) {
-                        $result = 1;
-                    }
-
-                } else {
-                    if ($field_id && $registrations->$field_id == $option) {
-                        $result = 1;
-                    }
-
-                }
-
-                return $result;
-            },
-            'FLAG_CAD_SICAB' => function ($registrations) use ($fields_cnpj, $inscricoes) {
-                $field_id = $fields_cnpj["FLAG_CAD_SICAB"];
-
-                $option = $inscricoes['sicab'];
-
-                $result = 0;
-
-                if (is_array($registrations->$field_id)) {
-                    if ($field_id && in_array($option, $registrations->$field_id)) {
-                        $result = 1;
-                    }
-
-                } else {
-                    if ($field_id && $registrations->$field_id == $option) {
-                        $result = 1;
-                    }
-
-                }
-
-                return $result;
-
-            },
-            'FLAG_CAD_OUTROS' => function ($registrations) use ($fields_cnpj, $inscricoes) {
-                
-                return 0;
-
-            },
-            'SISTEMA_CAD_OUTROS' => function ($registrations) use ($fields_cnpj, $inscricoes) {
-                return "";
-
-            },
-            'IDENTIFICADOR_CAD_OUTROS' => function ($registrations) use ($fields_cnpj, $inscricoes) {
-                return "";
-
-            },
-            'FLAG_ATUACAO_ARTES_CENICAS' => function ($registrations) use ($csv_conf, $fields_cnpj, $atuacoes, $category) {
-                $field_temp = $fields_cnpj['FLAG_ATUACAO_ARTES_CENICAS'];
-
-                if (is_array($field_temp)) {
-
-                    $field_id = [];
-                    foreach (array_filter($field_temp) as $key => $value) {
-                        if (!$field_id) {
-                            if ($registrations->$value) {
-                                $field_id = $registrations->$value;
-
-                            } else {
-                                $field_id = [];
-
-                            }
-                        }
-                    }
-                } else {
-                    $field_id = $registrations->$field_temp;
-                }
-
-                $options = $atuacoes['artes-cenicas'];
-
-                $result = 0;
-                foreach ($options as $value) {
-
-                    if (in_array($value, $field_id)) {
-                        $result = 1;
-                    }
-                }
-
-                return $result;
-            },
-            'FLAG_ATUACAO_AUDIOVISUAL' => function ($registrations) use ($csv_conf, $fields_cnpj, $atuacoes) {
-                $field_temp = $fields_cnpj['FLAG_ATUACAO_AUDIOVISUAL'];
-
-                if (is_array($field_temp)) {
-
-                    $field_id = [];
-                    foreach (array_filter($field_temp) as $key => $value) {
-                        if (!$field_id) {
-                            if ($registrations->$value) {
-                                $field_id = $registrations->$value;
-
-                            } else {
-                                $field_id = [];
-
-                            }
-                        }
-                    }
-                } else {
-                    $field_id = $registrations->$field_temp;
-                }
-
-                $options = $atuacoes['audiovisual'];
-
-                $result = 0;
-                foreach ($options as $value) {
-
-                    if (in_array($value, $field_id)) {
-                        $result = 1;
-                    }
-                }
-
-                return $result;
-
-            },
-            'FLAG_ATUACAO_MUSICA' => function ($registrations) use ($csv_conf, $fields_cnpj, $atuacoes) {
-                $field_temp = $fields_cnpj['FLAG_ATUACAO_MUSICA'];
-
-                if (is_array($field_temp)) {
-
-                    $field_id = [];
-                    foreach (array_filter($field_temp) as $key => $value) {
-                        if (!$field_id) {
-                            if ($registrations->$value) {
-                                $field_id = $registrations->$value;
-
-                            } else {
-                                $field_id = [];
-
-                            }
-                        }
-                    }
-                } else {
-                    $field_id = $registrations->$field_temp;
-                }
-
-                $options = $atuacoes['musica'];
-
-                $result = 0;
-                foreach ($options as $value) {
-
-                    if (in_array($value, $field_id)) {
-                        $result = 1;
-                    }
-                }
-
-                return $result;
-            },
-            'FLAG_ATUACAO_ARTES_VISUAIS' => function ($registrations) use ($csv_conf, $fields_cnpj, $atuacoes) {
-                $field_temp = $fields_cnpj['FLAG_ATUACAO_ARTES_VISUAIS'];
-
-                if (is_array($field_temp)) {
-
-                    $field_id = [];
-                    foreach (array_filter($field_temp) as $key => $value) {
-                        if (!$field_id) {
-                            if ($registrations->$value) {
-                                $field_id = $registrations->$value;
-
-                            } else {
-                                $field_id = [];
-
-                            }
-                        }
-                    }
-                } else {
-                    $field_id = $registrations->$field_temp;
-                }
-
-                $options = $atuacoes['artes-visuais'];
-
-                $result = 0;
-                foreach ($options as $value) {
-
-                    if (in_array($value, $field_id)) {
-                        $result = 1;
-                    }
-                }
-
-                return $result;
-
-            },
-            'FLAG_ATUACAO_PATRIMONIO_CULTURAL' => function ($registrations) use ($csv_conf, $fields_cnpj, $atuacoes) {
-                $field_temp = $fields_cnpj['FLAG_ATUACAO_PATRIMONIO_CULTURAL'];
-
-                if (is_array($field_temp)) {
-
-                    $field_id = [];
-                    foreach (array_filter($field_temp) as $key => $value) {
-                        if (!$field_id) {
-                            if ($registrations->$value) {
-                                $field_id = $registrations->$value;
-
-                            } else {
-                                $field_id = [];
-
-                            }
-                        }
-                    }
-                } else {
-                    $field_id = $registrations->$field_temp;
-                }
-
-                $options = $atuacoes['patrimonio-cultural'];
-
-                $result = 0;
-                foreach ($options as $value) {
-
-                    if (in_array($value, $field_id)) {
-                        $result = 1;
-                    }
-                }
-
-                return $result;
-            },
-            'FLAG_ATUACAO_MUSEUS_MEMORIA' => function ($registrations) use ($csv_conf, $fields_cnpj, $atuacoes) {
-                $field_temp = $fields_cnpj['FLAG_ATUACAO_MUSEUS_MEMORIA'];
-
-                if (is_array($field_temp)) {
-
-                    $field_id = [];
-                    foreach (array_filter($field_temp) as $key => $value) {
-                        if (!$field_id) {
-                            if ($registrations->$value) {
-                                $field_id = $registrations->$value;
-
-                            } else {
-                                $field_id = [];
-
-                            }
-                        }
-                    }
-                } else {
-                    $field_id = $registrations->$field_temp;
-                }
-
-                $options = $atuacoes['museu-memoria'];
-
-                $result = 0;
-                foreach ($options as $value) {
-
-                    if (in_array($value, $field_id)) {
-                        $result = 1;
-                    }
-                }
-
-                return $result;
-            },
-            'FLAG_ATUACAO_HUMANIDADES' => function ($registrations) use ($csv_conf, $fields_cnpj, $atuacoes) {
-                $field_temp = $fields_cnpj['FLAG_ATUACAO_HUMANIDADES'];
-
-                if (is_array($field_temp)) {
-
-                    $field_id = [];
-                    foreach (array_filter($field_temp) as $key => $value) {
-                        if (!$field_id) {
-                            if ($registrations->$value) {
-                                $field_id = $registrations->$value;
-
-                            } else {
-                                $field_id = [];
-
-                            }
-                        }
-                    }
-                } else {
-                    $field_id = $registrations->$field_temp;
-                }
-
-                $options = $atuacoes['humanidades'];
-
-                $result = 0;
-                foreach ($options as $value) {
-
-                    if (in_array($value, $field_id)) {
-                        $result = 1;
-                    }
-                }
-
-                return $result;
-            },
-        ];
-
-        /**
-         * Itera sobre os dados mapeados
-         */
         $data_candidate_cpf = [];
         $data_candidate_cnpj = [];
-        foreach ($registrations as $key_registration => $registration) {
-            
-            //Verifica qual tipo de candidato se trata no  cadastro se e pessoa física ou pessoa jurídica
-            if (in_array($registration->category, ['BENEFICIÁRIO COM CPF E ESPAÇO FÍSICO', 'BENEFICIÁRIO COM CPF E SEM ESPAÇO FÍSICO'])) {
-                $type_candidate = 'fields_cpf_';
-            } else if (in_array($registration->category, ['BENEFICIÁRIO COM CNPJ E SEM ESPAÇO FÍSICO', 'BENEFICIÁRIO COM CNPJ E ESPAÇO FÍSICO'])) {
-                $type_candidate = 'fields_cnpj_';
-            } else {
-                die("inscrição: {$registration->number} - categoria '{$registration->category}' inválida");
-            }
-            
+
+        foreach ($opportunities as $opportunity) {
+
+            $field_labelMap = [];
+
             /**
-             * Faz a separação dos candidatos
-             *
-             * $data_candidate_cpf recebe pessoas físicas
-             * $data_candidate_cnpj recebe pessoas jurídicas
+             * Mapeamento de fielsds_id pelo label do campo
              */
-            foreach ($$type_candidate as $key_fields => $field) {
+            foreach ($opportunity->registrationFieldConfigurations as $field) {
+                $field_labelMap["field_" . $field->id] = trim($field->title);
 
-                if ($type_candidate == 'fields_cnpj_') {
+            }
 
-                    if (is_callable($field)) {
-                        $data_candidate_cnpj[$key_registration][$key_fields] = $field($registration);
+            /**
+             * Faz o mapeamento do field_id pelo label do campo para requerentes do tipo CPF
+             *
+             * Esta sendo feito uma comparação de string, coloque no arquivo de configuração
+             * exatamente o texto do label desejado
+             */
+            foreach ($csv_conf['fields_cpf'] as $key_csv_conf => $field) {
+                if (is_array($field)) {
+                    $value = array_unique($field);
 
-                    } else if (is_string($field) && strlen($field) > 0) {
-
-                        $data_candidate_cnpj[$key_registration][$key_fields] = $registration->$field;
+                    if (count($value) == 1) {
+                        foreach ($field as $key => $value) {
+                            $field_temp = array_keys($field_labelMap, $value);
+                        }
 
                     } else {
 
-                        $data_candidate_cnpj[$key_registration][$key_fields] = $field;
+                        $field_temp = [];
+                        foreach ($field as $key => $value) {
+                            $field_temp[] = array_search(trim($value), $field_labelMap);
+
+                        }
 
                     }
+                    $fields_cpf[$key_csv_conf] = $field_temp;
+
                 } else {
-                    if (is_callable($field)) {
-                        $data_candidate_cpf[$key_registration][$key_fields] = $field($registration);
+                    $field_temp = array_search(trim($field), $field_labelMap);
+                    $fields_cpf[$key_csv_conf] = $field_temp ? $field_temp : $field;
 
-                    } else if (is_string($field) && strlen($field) > 0) {
+                }
+            }
 
-                        $data_candidate_cpf[$key_registration][$key_fields] = $registration->$field;
+            /**
+             * Faz o mapeamento do field_id pelo label do campo para requerentes do tipo CPF
+             *
+             * Esta sendo feito uma comparação de string, coloque no arquivo de configuração
+             * exatamente o texto do label desejado
+             */
+            foreach ($csv_conf['fields_cnpj'] as $key_csv_conf => $field) {
+                if (is_array($field)) {
+
+                    $value = array_unique($field);
+
+                    if (count($value) == 1) {
+                        foreach ($field as $key => $value) {
+                            $field_temp = array_keys($field_labelMap, $value);
+                        }
 
                     } else {
 
-                        $data_candidate_cpf[$key_registration][$key_fields] = $field;
+                        $field_temp = [];
+                        foreach ($field as $key => $value) {
+                            $field_temp[] = array_search(trim($value), $field_labelMap);
+
+                        }
 
                     }
-                }
+                    $fields_cnpj[$key_csv_conf] = $field_temp;
 
+                } else {
+                    $field_temp = array_search(trim($field), $field_labelMap);
+                    $fields_cnpj[$key_csv_conf] = $field_temp ? $field_temp : $field;
+
+                }
+            }
+
+            /**
+             * Mapeia os fields para um requerente pessoa física
+             */
+            $fields_cpf_ = [
+                'CPF' => function ($registrations) use ($fields_cpf) {
+                    $field_id = $fields_cpf['CPF'];
+                    return str_replace(['.', '-'], '', $registrations->$field_id);
+
+                },
+                'SEXO' => function ($registrations) use ($fields_cpf) {
+                    $field_id = $fields_cpf['SEXO'];
+
+                    if ($registrations->$field_id == 'Masculino') {
+                        return 1;
+
+                    } else if ($registrations->$field_id == 'Feminino') {
+                        return 2;
+
+                    } else {
+                        return 0;
+                    }
+
+                },
+                'NOME_ESPACO_CULTURAL' => function ($registrations) use ($fields_cpf) {
+                    $field_id = $fields_cpf['NOME_ESPACO_CULTURAL'];
+
+                    $result = "";
+                    if (is_array($field_id)) {
+                        foreach ($field_id as $value) {
+                            if (!$value) {
+                                continue;
+                            }
+                            if($registrations->$value){
+                                $result = $registrations->$value;
+                                break;
+                            }
+                        }
+                    } else {
+                        $result = $registrations->$field_id ? $registrations->$field_id : '';
+
+                    }
+
+                    return $result;
+                },
+                'FLAG_CAD_ESTADUAL' => function ($registrations) use ($fields_cpf, $inscricoes) {
+                    $field_id = $fields_cpf["FLAG_CAD_ESTADUAL"];
+                    
+                    if($field_id){
+                        return 1;
+                    }else{
+                        return 0;
+                    }
+                },
+                'SISTEMA_CAD_ESTADUAL' => function ($registrations) use ($fields_cpf, $app, $inscricoes) {
+                    return $fields_cpf['FLAG_CAD_ESTADUAL'] ? $app->view->dict('site: name', false) : '';
+                },
+                'IDENTIFICADOR_CAD_ESTADUAL' => function ($registrations) use ($fields_cpf, $inscricoes) {
+                    return $fields_cpf['FLAG_CAD_ESTADUAL'] ? $registrations->number : '';
+
+                },
+                'FLAG_CAD_MUNICIPAL' => function ($registrations) use ($fields_cpf, $inscricoes) {
+                    $field_id = $fields_cpf["FLAG_CAD_MUNICIPAL"];
+                    
+                    if($field_id){
+                        return 1;
+                    }else{
+                        return 0;
+                    }
+                    
+                },
+                'SISTEMA_CAD_MUNICIPAL' => function ($registrations) use ($fields_cpf, $app, $inscricoes) {                
+                    return $fields_cpf['FLAG_CAD_MUNICIPAL'] ? $app->view->dict('site: name', false) : '';
+
+                },
+                'IDENTIFICADOR_CAD_MUNICIPAL' => function ($registrations) use ($fields_cpf, $inscricoes) {
+                    return $fields_cpf['FLAG_CAD_MUNICIPAL'] ? $registrations->number : '';
+                },
+                'FLAG_CAD_DISTRITAL' => function ($registrations) use ($fields_cpf) {
+                    $field_id = $fields_cpf["FLAG_CAD_DISTRITAL"];
+                    
+                    if($field_id){
+                        return 1;
+                    }else{
+                        return 0;
+                    }
+
+                },
+                'SISTEMA_CAD_DISTRITAL' => function ($registrations) use ($fields_cpf, $app) {
+                    return $fields_cpf['FLAG_CAD_DISTRITAL'] ? $app->view->dict('site: name', false) : '';
+
+                },
+                'IDENTIFICADOR_CAD_DISTRITAL' => function ($registrations) use ($fields_cpf) {
+                    return $fields_cpf['FLAG_CAD_DISTRITAL'] ? $registrations->number : '';
+
+                },
+                'FLAG_CAD_NA_PONTOS_PONTOES' => function ($registrations) use ($fields_cnpj) {
+                    $field_id = $fields_cnpj["FLAG_CAD_NA_PONTOS_PONTOES"];
+
+                    $option = 'Cadastro Nacional de Pontos e Pontões de Cultura';
+
+                    $result = 0;
+
+                    if (is_array($registrations->$field_id)) {
+                        if ($field_id && in_array($option, $registrations->$field_id)) {
+                            $result = 1;
+                        }
+
+                    } else {
+                        if ($field_id && $registrations->$field_id == $option) {
+                            $result = 1;
+                        }
+
+                    }
+                    return $result;
+
+                },
+                'FLAG_CAD_ES_PONTOS_PONTOES' => function ($registrations) use ($fields_cpf) {
+                    return 0;
+                },
+                'SISTEMA_CAD_ES_PONTOS_PONTOES' => function ($registrations) use ($fields_cpf) {
+                    return '';
+                },
+                'IDENTIFICADOR_CAD_ES_PONTOS_PONTOES' => function ($registrations) use ($fields_cpf) {
+                    return '';
+                },
+                'FLAG_CAD_SNIIC' => function ($registrations) use ($fields_cpf, $inscricoes) {
+                    $field_id = $fields_cpf["FLAG_CAD_SNIIC"];
+                    
+                    if($field_id){
+                        return 1;
+                    }else{
+                        return 0;
+                    }
+
+
+                },
+                'SISTEMA_CAD_SNIIC' => function ($registrations) use ($fields_cpf, $inscricoes, $app) {
+                    return $fields_cpf['FLAG_CAD_SNIIC'] ? $app->view->dict('site: name', false) : '';
+
+                },
+                'IDENTIFICADOR_CAD_SNIIC' => function ($registrations) use ($fields_cpf, $inscricoes) {
+                    return $fields_cpf['FLAG_CAD_SNIIC'] ? $registrations->number : '';
+                },
+                'FLAG_CAD_SALIC' => function ($registrations) use ($fields_cnpj, $inscricoes) {
+                    $field_id = $fields_cnpj["FLAG_CAD_SALIC"];
+
+                    $option = $inscricoes['salic'];
+
+                    $result = 0;
+
+                    if (is_array($registrations->$field_id)) {
+                        if ($field_id && in_array($option, $registrations->$field_id)) {
+                            $result = 1;
+                        }
+
+                    } else {
+                        if ($field_id && $registrations->$field_id == $option) {
+                            $result = 1;
+                        }
+
+                    }
+
+                    return $result;
+                },
+                'FLAG_CAD_SICAB' => function ($registrations) use ($fields_cnpj, $inscricoes) {
+                    $field_id = $fields_cnpj["FLAG_CAD_SICAB"];
+
+                    $option = $inscricoes['sicab'];
+
+                    $result = 0;
+
+                    if (is_array($registrations->$field_id)) {
+                        if ($field_id && in_array($option, $registrations->$field_id)) {
+                            $result = 1;
+                        }
+
+                    } else {
+                        if ($field_id && $registrations->$field_id == $option) {
+                            $result = 1;
+                        }
+
+                    }
+
+                    return $result;
+
+                },
+                'FLAG_CAD_OUTROS' => function ($registrations) use ($fields_cnpj, $inscricoes) {
+                    return 0;
+
+                },
+                'SISTEMA_CAD_OUTROS' => function ($registrations) use ($fields_cnpj, $inscricoes) {
+                    return "";
+
+                },
+                'IDENTIFICADOR_CAD_OUTROS' => function ($registrations) use ($fields_cnpj, $inscricoes) {
+                    return "";
+
+                },
+                'FLAG_ATUACAO_ARTES_CENICAS' => function ($registrations) use ($csv_conf, $fields_cnpj, $atuacoes, $category) {
+                    $field_temp = $fields_cnpj['FLAG_ATUACAO_ARTES_CENICAS'];
+
+                    if (is_array($field_temp)) {
+
+                        $field_id = [];
+                        foreach (array_filter($field_temp) as $key => $value) {
+                            if (!$field_id) {
+                                if ($registrations->$value) {
+                                    $field_id = $registrations->$value;
+
+                                } else {
+                                    $field_id = [];
+
+                                }
+                            }
+                        }
+                    } else {
+                        $field_id = $registrations->$field_temp;
+                    }
+
+                    $options = $atuacoes['artes-cenicas'];
+
+                    $result = 0;
+                    foreach ($options as $value) {
+
+                        if (in_array($value, $field_id)) {
+                            $result = 1;
+                        }
+                    }
+
+                    return $result;
+                },
+                'FLAG_ATUACAO_AUDIOVISUAL' => function ($registrations) use ($csv_conf, $fields_cnpj, $atuacoes) {
+                    $field_temp = $fields_cnpj['FLAG_ATUACAO_AUDIOVISUAL'];
+
+                    if (is_array($field_temp)) {
+
+                        $field_id = [];
+                        foreach (array_filter($field_temp) as $key => $value) {
+                            if (!$field_id) {
+                                if ($registrations->$value) {
+                                    $field_id = $registrations->$value;
+
+                                } else {
+                                    $field_id = [];
+
+                                }
+                            }
+                        }
+                    } else {
+                        $field_id = $registrations->$field_temp;
+                    }
+
+                    $options = $atuacoes['audiovisual'];
+
+                    $result = 0;
+                    foreach ($options as $value) {
+
+                        if (in_array($value, $field_id)) {
+                            $result = 1;
+                        }
+                    }
+
+                    return $result;
+
+                },
+                'FLAG_ATUACAO_MUSICA' => function ($registrations) use ($csv_conf, $fields_cnpj, $atuacoes) {
+                    $field_temp = $fields_cnpj['FLAG_ATUACAO_MUSICA'];
+
+                    if (is_array($field_temp)) {
+
+                        $field_id = [];
+                        foreach (array_filter($field_temp) as $key => $value) {
+                            if (!$field_id) {
+                                if ($registrations->$value) {
+                                    $field_id = $registrations->$value;
+
+                                } else {
+                                    $field_id = [];
+
+                                }
+                            }
+                        }
+                    } else {
+                        $field_id = $registrations->$field_temp;
+                    }
+
+                    $options = $atuacoes['musica'];
+
+                    $result = 0;
+                    foreach ($options as $value) {
+
+                        if (in_array($value, $field_id)) {
+                            $result = 1;
+                        }
+                    }
+
+                    return $result;
+                },
+                'FLAG_ATUACAO_ARTES_VISUAIS' => function ($registrations) use ($csv_conf, $fields_cnpj, $atuacoes) {
+                    $field_temp = $fields_cnpj['FLAG_ATUACAO_ARTES_VISUAIS'];
+
+                    if (is_array($field_temp)) {
+
+                        $field_id = [];
+                        foreach (array_filter($field_temp) as $key => $value) {
+                            if (!$field_id) {
+                                if ($registrations->$value) {
+                                    $field_id = $registrations->$value;
+
+                                } else {
+                                    $field_id = [];
+
+                                }
+                            }
+                        }
+                    } else {
+                        $field_id = $registrations->$field_temp;
+                    }
+
+                    $options = $atuacoes['artes-visuais'];
+
+                    $result = 0;
+                    foreach ($options as $value) {
+
+                        if (in_array($value, $field_id)) {
+                            $result = 1;
+                        }
+                    }
+
+                    return $result;
+
+                },
+                'FLAG_ATUACAO_PATRIMONIO_CULTURAL' => function ($registrations) use ($csv_conf, $fields_cnpj, $atuacoes) {
+                    $field_temp = $fields_cnpj['FLAG_ATUACAO_PATRIMONIO_CULTURAL'];
+
+                    if (is_array($field_temp)) {
+
+                        $field_id = [];
+                        foreach (array_filter($field_temp) as $key => $value) {
+                            if (!$field_id) {
+                                if ($registrations->$value) {
+                                    $field_id = $registrations->$value;
+
+                                } else {
+                                    $field_id = [];
+
+                                }
+                            }
+                        }
+                    } else {
+                        $field_id = $registrations->$field_temp;
+                    }
+
+                    $options = $atuacoes['patrimonio-cultural'];
+
+                    $result = 0;
+                    foreach ($options as $value) {
+
+                        if (in_array($value, $field_id)) {
+                            $result = 1;
+                        }
+                    }
+
+                    return $result;
+                },
+                'FLAG_ATUACAO_MUSEUS_MEMORIA' => function ($registrations) use ($csv_conf, $fields_cnpj, $atuacoes) {
+                    $field_temp = $fields_cnpj['FLAG_ATUACAO_MUSEUS_MEMORIA'];
+
+                    if (is_array($field_temp)) {
+
+                        $field_id = [];
+                        foreach (array_filter($field_temp) as $key => $value) {
+                            if (!$field_id) {
+                                if ($registrations->$value) {
+                                    $field_id = $registrations->$value;
+
+                                } else {
+                                    $field_id = [];
+
+                                }
+                            }
+                        }
+                    } else {
+                        $field_id = $registrations->$field_temp;
+                    }
+
+                    $options = $atuacoes['museu-memoria'];
+
+                    $result = 0;
+                    foreach ($options as $value) {
+
+                        if (in_array($value, $field_id)) {
+                            $result = 1;
+                        }
+                    }
+
+                    return $result;
+                },
+                'FLAG_ATUACAO_HUMANIDADES' => function ($registrations) use ($csv_conf, $fields_cnpj, $atuacoes) {
+                    $field_temp = $fields_cnpj['FLAG_ATUACAO_HUMANIDADES'];
+
+                    if (is_array($field_temp)) {
+
+                        $field_id = [];
+                        foreach (array_filter($field_temp) as $key => $value) {
+                            if (!$field_id) {
+                                if ($registrations->$value) {
+                                    $field_id = $registrations->$value;
+
+                                } else {
+                                    $field_id = [];
+
+                                }
+                            }
+                        }
+                    } else {
+                        $field_id = $registrations->$field_temp;
+                    }
+
+                    $options = $atuacoes['humanidades'];
+
+                    $result = 0;
+                    foreach ($options as $value) {
+
+                        if (in_array($value, $field_id)) {
+                            $result = 1;
+                        }
+                    }
+
+                    return $result;
+                },
+            ];
+
+            /**
+             * Mapeia os fields para um requerente pessoa jurídica
+             */
+            $fields_cnpj_ = [
+                'CNPJ' => function ($registrations) use ($fields_cnpj) {
+                    $field_temp = $fields_cnpj['CNPJ'];
+                    $field_id = null;
+
+                    if (is_array($field_temp)) {
+                        foreach ($field_temp as $value) {
+
+                            if ($registrations->$value) {
+                                $field_id = $value;
+                            }
+                        }
+                    } else {
+                        $field_id = $field_temp;
+                    }
+                    if ($field_id){
+                        return str_replace(['.', '-', '/'], '', $registrations->$field_id);
+                    } else {
+                        return null;
+                    }
+
+                }, 'FLAG_CAD_ESTADUAL' => function ($registrations) use ($fields_cnpj, $inscricoes) {
+                    $field_id = $fields_cnpj["FLAG_CAD_ESTADUAL"];
+                    
+                    if($field_id){
+                        return 1;
+                    }else{
+                        return 0;
+                    }
+
+                },
+                'SISTEMA_CAD_ESTADUAL' => function ($registrations) use ($fields_cnpj, $app, $inscricoes) {
+                    return $fields_cnpj['FLAG_CAD_ESTADUAL'] ? $app->view->dict('site: name', false) : '';
+                },
+                'IDENTIFICADOR_CAD_ESTADUAL' => function ($registrations) use ($fields_cnpj, $inscricoes) {
+                    return $fields_cnpj['FLAG_CAD_ESTADUAL'] ? $registrations->number : '';
+
+                },
+                'FLAG_CAD_MUNICIPAL' => function ($registrations) use ($fields_cnpj, $inscricoes) {
+                    $field_id = $fields_cnpj["FLAG_CAD_MUNICIPAL"];
+                    
+                    if($field_id){
+                        return 1;
+                    }else{
+                        return 0;
+                    }
+
+                },
+                'SISTEMA_CAD_MUNICIPAL' => function ($registrations) use ($fields_cnpj, $inscricoes, $app) {
+                    return $fields_cnpj['FLAG_CAD_MUNICIPAL'] ? $app->view->dict('site: name', false) : '';
+
+                },
+                'IDENTIFICADOR_CAD_MUNICIPAL' => function ($registrations) use ($fields_cnpj, $inscricoes) {
+                    return $fields_cnpj['FLAG_CAD_MUNICIPAL'] ? $registrations->number : '';
+
+                },
+                'FLAG_CAD_DISTRITAL' => function ($registrations) use ($fields_cnpj) {
+                    $field_id = $fields_cnpj["FLAG_CAD_DISTRITAL"];
+                    
+                    if($field_id){
+                        return 1;
+                    }else{
+                        return 0;
+                    }
+
+                },
+                'SISTEMA_CAD_DISTRITAL' => function ($registrations) use ($fields_cnpj, $app) {
+                    return $fields_cnpj['FLAG_CAD_DISTRITAL'] ? $app->view->dict('site: name', false) : '';
+
+                },
+                'IDENTIFICADOR_CAD_DISTRITAL' => function ($registrations) use ($fields_cnpj) {
+                    return $fields_cnpj['FLAG_CAD_DISTRITAL'] ? $registrations->number : '';
+
+                },
+                'FLAG_CAD_NA_PONTOS_PONTOES' => function ($registrations) use ($fields_cnpj) {
+                    $field_id = $fields_cnpj["FLAG_CAD_NA_PONTOS_PONTOES"];
+
+                    $option = 'Cadastro Nacional de Pontos e Pontões de Cultura';
+
+                    $result = 0;
+
+                    if (is_array($registrations->$field_id)) {
+                        if ($field_id && in_array($option, $registrations->$field_id)) {
+                            $result = 1;
+                        }
+
+                    } else {
+                        if ($field_id && $registrations->$field_id == $option) {
+                            $result = 1;
+                        }
+
+                    }
+                    return $result;
+
+                },
+                'FLAG_CAD_ES_PONTOS_PONTOES' => function ($registrations) use ($fields_cnpj) {
+                    return 0;
+                },
+                'SISTEMA_CAD_ES_PONTOS_PONTOES' => function ($registrations) use ($fields_cnpj) {
+                    return "";
+                },
+                'IDENTIFICADOR_CAD_ES_PONTOS_PONTOES' => function ($registrations) use ($fields_cnpj) {
+                    return "";
+                },
+                'FLAG_CAD_SNIIC' => function ($registrations) use ($fields_cnpj, $inscricoes) {
+                    $field_id = $fields_cnpj["FLAG_CAD_SNIIC"];
+                    
+                    if($field_id){
+                        return 1;
+                    }else{
+                        return 0;
+                    }
+
+                },
+                'SISTEMA_CAD_SNIIC' => function ($registrations) use ($fields_cnpj, $inscricoes, $app) {
+                    return $fields_cnpj['FLAG_CAD_SNIIC'] ? $app->view->dict('site: name', false) : '';
+
+                },
+                'IDENTIFICADOR_CAD_SNIIC' => function ($registrations) use ($fields_cnpj, $inscricoes) {
+                    return $fields_cnpj['FLAG_CAD_SNIIC'] ? $registrations->number : '';
+
+                },
+                'FLAG_CAD_SALIC' => function ($registrations) use ($fields_cnpj, $inscricoes) {
+                    $field_id = $fields_cnpj["FLAG_CAD_SALIC"];
+
+                    $option = $inscricoes['salic'];
+
+                    $result = 0;
+
+                    if (is_array($registrations->$field_id)) {
+                        if ($field_id && in_array($option, $registrations->$field_id)) {
+                            $result = 1;
+                        }
+
+                    } else {
+                        if ($field_id && $registrations->$field_id == $option) {
+                            $result = 1;
+                        }
+
+                    }
+
+                    return $result;
+                },
+                'FLAG_CAD_SICAB' => function ($registrations) use ($fields_cnpj, $inscricoes) {
+                    $field_id = $fields_cnpj["FLAG_CAD_SICAB"];
+
+                    $option = $inscricoes['sicab'];
+
+                    $result = 0;
+
+                    if (is_array($registrations->$field_id)) {
+                        if ($field_id && in_array($option, $registrations->$field_id)) {
+                            $result = 1;
+                        }
+
+                    } else {
+                        if ($field_id && $registrations->$field_id == $option) {
+                            $result = 1;
+                        }
+
+                    }
+
+                    return $result;
+
+                },
+                'FLAG_CAD_OUTROS' => function ($registrations) use ($fields_cnpj, $inscricoes) {
+                    
+                    return 0;
+
+                },
+                'SISTEMA_CAD_OUTROS' => function ($registrations) use ($fields_cnpj, $inscricoes) {
+                    return "";
+
+                },
+                'IDENTIFICADOR_CAD_OUTROS' => function ($registrations) use ($fields_cnpj, $inscricoes) {
+                    return "";
+
+                },
+                'FLAG_ATUACAO_ARTES_CENICAS' => function ($registrations) use ($csv_conf, $fields_cnpj, $atuacoes, $category) {
+                    $field_temp = $fields_cnpj['FLAG_ATUACAO_ARTES_CENICAS'];
+
+                    if (is_array($field_temp)) {
+
+                        $field_id = [];
+                        foreach (array_filter($field_temp) as $key => $value) {
+                            if (!$field_id) {
+                                if ($registrations->$value) {
+                                    $field_id = $registrations->$value;
+
+                                } else {
+                                    $field_id = [];
+
+                                }
+                            }
+                        }
+                    } else {
+                        $field_id = $registrations->$field_temp;
+                    }
+
+                    $options = $atuacoes['artes-cenicas'];
+
+                    $result = 0;
+                    foreach ($options as $value) {
+
+                        if (in_array($value, $field_id)) {
+                            $result = 1;
+                        }
+                    }
+
+                    return $result;
+                },
+                'FLAG_ATUACAO_AUDIOVISUAL' => function ($registrations) use ($csv_conf, $fields_cnpj, $atuacoes) {
+                    $field_temp = $fields_cnpj['FLAG_ATUACAO_AUDIOVISUAL'];
+
+                    if (is_array($field_temp)) {
+
+                        $field_id = [];
+                        foreach (array_filter($field_temp) as $key => $value) {
+                            if (!$field_id) {
+                                if ($registrations->$value) {
+                                    $field_id = $registrations->$value;
+
+                                } else {
+                                    $field_id = [];
+
+                                }
+                            }
+                        }
+                    } else {
+                        $field_id = $registrations->$field_temp;
+                    }
+
+                    $options = $atuacoes['audiovisual'];
+
+                    $result = 0;
+                    foreach ($options as $value) {
+
+                        if (in_array($value, $field_id)) {
+                            $result = 1;
+                        }
+                    }
+
+                    return $result;
+
+                },
+                'FLAG_ATUACAO_MUSICA' => function ($registrations) use ($csv_conf, $fields_cnpj, $atuacoes) {
+                    $field_temp = $fields_cnpj['FLAG_ATUACAO_MUSICA'];
+
+                    if (is_array($field_temp)) {
+
+                        $field_id = [];
+                        foreach (array_filter($field_temp) as $key => $value) {
+                            if (!$field_id) {
+                                if ($registrations->$value) {
+                                    $field_id = $registrations->$value;
+
+                                } else {
+                                    $field_id = [];
+
+                                }
+                            }
+                        }
+                    } else {
+                        $field_id = $registrations->$field_temp;
+                    }
+
+                    $options = $atuacoes['musica'];
+
+                    $result = 0;
+                    foreach ($options as $value) {
+
+                        if (in_array($value, $field_id)) {
+                            $result = 1;
+                        }
+                    }
+
+                    return $result;
+                },
+                'FLAG_ATUACAO_ARTES_VISUAIS' => function ($registrations) use ($csv_conf, $fields_cnpj, $atuacoes) {
+                    $field_temp = $fields_cnpj['FLAG_ATUACAO_ARTES_VISUAIS'];
+
+                    if (is_array($field_temp)) {
+
+                        $field_id = [];
+                        foreach (array_filter($field_temp) as $key => $value) {
+                            if (!$field_id) {
+                                if ($registrations->$value) {
+                                    $field_id = $registrations->$value;
+
+                                } else {
+                                    $field_id = [];
+
+                                }
+                            }
+                        }
+                    } else {
+                        $field_id = $registrations->$field_temp;
+                    }
+
+                    $options = $atuacoes['artes-visuais'];
+
+                    $result = 0;
+                    foreach ($options as $value) {
+
+                        if (in_array($value, $field_id)) {
+                            $result = 1;
+                        }
+                    }
+
+                    return $result;
+
+                },
+                'FLAG_ATUACAO_PATRIMONIO_CULTURAL' => function ($registrations) use ($csv_conf, $fields_cnpj, $atuacoes) {
+                    $field_temp = $fields_cnpj['FLAG_ATUACAO_PATRIMONIO_CULTURAL'];
+
+                    if (is_array($field_temp)) {
+
+                        $field_id = [];
+                        foreach (array_filter($field_temp) as $key => $value) {
+                            if (!$field_id) {
+                                if ($registrations->$value) {
+                                    $field_id = $registrations->$value;
+
+                                } else {
+                                    $field_id = [];
+
+                                }
+                            }
+                        }
+                    } else {
+                        $field_id = $registrations->$field_temp;
+                    }
+
+                    $options = $atuacoes['patrimonio-cultural'];
+
+                    $result = 0;
+                    foreach ($options as $value) {
+
+                        if (in_array($value, $field_id)) {
+                            $result = 1;
+                        }
+                    }
+
+                    return $result;
+                },
+                'FLAG_ATUACAO_MUSEUS_MEMORIA' => function ($registrations) use ($csv_conf, $fields_cnpj, $atuacoes) {
+                    $field_temp = $fields_cnpj['FLAG_ATUACAO_MUSEUS_MEMORIA'];
+
+                    if (is_array($field_temp)) {
+
+                        $field_id = [];
+                        foreach (array_filter($field_temp) as $key => $value) {
+                            if (!$field_id) {
+                                if ($registrations->$value) {
+                                    $field_id = $registrations->$value;
+
+                                } else {
+                                    $field_id = [];
+
+                                }
+                            }
+                        }
+                    } else {
+                        $field_id = $registrations->$field_temp;
+                    }
+
+                    $options = $atuacoes['museu-memoria'];
+
+                    $result = 0;
+                    foreach ($options as $value) {
+
+                        if (in_array($value, $field_id)) {
+                            $result = 1;
+                        }
+                    }
+
+                    return $result;
+                },
+                'FLAG_ATUACAO_HUMANIDADES' => function ($registrations) use ($csv_conf, $fields_cnpj, $atuacoes) {
+                    $field_temp = $fields_cnpj['FLAG_ATUACAO_HUMANIDADES'];
+
+                    if (is_array($field_temp)) {
+
+                        $field_id = [];
+                        foreach (array_filter($field_temp) as $key => $value) {
+                            if (!$field_id) {
+                                if ($registrations->$value) {
+                                    $field_id = $registrations->$value;
+
+                                } else {
+                                    $field_id = [];
+
+                                }
+                            }
+                        }
+                    } else {
+                        $field_id = $registrations->$field_temp;
+                    }
+
+                    $options = $atuacoes['humanidades'];
+
+                    $result = 0;
+                    foreach ($options as $value) {
+
+                        if (in_array($value, $field_id)) {
+                            $result = 1;
+                        }
+                    }
+
+                    return $result;
+                },
+            ];
+
+            /**
+             * Itera sobre os dados mapeados
+             */
+            foreach ($registrations as $key_registration => $registration) {
+                
+                //Verifica qual tipo de candidato se trata no  cadastro se e pessoa física ou pessoa jurídica
+                if (in_array($registration->category, ['BENEFICIÁRIO COM CPF E ESPAÇO FÍSICO', 'BENEFICIÁRIO COM CPF E SEM ESPAÇO FÍSICO'])) {
+                    $type_candidate = 'fields_cpf_';
+                } else if (in_array($registration->category, ['BENEFICIÁRIO COM CNPJ E SEM ESPAÇO FÍSICO', 'BENEFICIÁRIO COM CNPJ E ESPAÇO FÍSICO'])) {
+                    $type_candidate = 'fields_cnpj_';
+                } else {
+                    die("inscrição: {$registration->number} - categoria '{$registration->category}' inválida");
+                }
+                
+                /**
+                 * Faz a separação dos candidatos
+                 *
+                 * $data_candidate_cpf recebe pessoas físicas
+                 * $data_candidate_cnpj recebe pessoas jurídicas
+                 */
+                foreach ($$type_candidate as $key_fields => $field) {
+
+                    if ($type_candidate == 'fields_cnpj_') {
+
+                        if (is_callable($field)) {
+                            $data_candidate_cnpj[$key_registration][$key_fields] = $field($registration);
+
+                        } else if (is_string($field) && strlen($field) > 0) {
+
+                            $data_candidate_cnpj[$key_registration][$key_fields] = $registration->$field;
+
+                        } else {
+
+                            $data_candidate_cnpj[$key_registration][$key_fields] = $field;
+
+                        }
+                    } else {
+                        if (is_callable($field)) {
+                            $data_candidate_cpf[$key_registration][$key_fields] = $field($registration);
+
+                        } else if (is_string($field) && strlen($field) > 0) {
+
+                            $data_candidate_cpf[$key_registration][$key_fields] = $registration->$field;
+
+                        } else {
+
+                            $data_candidate_cpf[$key_registration][$key_fields] = $field;
+
+                        }
+                    }
+
+                }
             }
         }
 
