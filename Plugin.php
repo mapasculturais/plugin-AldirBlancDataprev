@@ -75,6 +75,13 @@ class Plugin extends \AldirBlanc\PluginValidador
             }
         });
 
+        $app->hook('template(project.single.entity-opportunities):before', function () use($plugin, $plugin_validador) {
+            $project = $this->controller->requestedEntity;
+
+            $this->part('aldirblanc/project-csv-buttons', ['project' => $project, 'plugin' => $plugin, 'plugin_validador' => $plugin_validador]);
+
+        });
+
         // uploads de CSVs 
         $app->hook('template(opportunity.<<single|edit>>.sidebar-right):end', function () {
             $opportunity = $this->controller->requestedEntity; 
