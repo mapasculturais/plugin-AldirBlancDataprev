@@ -42,13 +42,25 @@ class Controller extends \MapasCulturais\Controllers\Registration
         $app = App::i();
         
         $_regs = [];
+
+        $plugin = $app->plugins['AldirBlancDataprev'];
+        $user = $plugin->getUser();
+        $validador_recurso = $app->repo('User')->findOneBy(['email' => 'recurso@validador']);
+
         foreach ($registrations as $registration) {
-            if ($this->config['exportador_requer_homologacao']) {
-                if (in_array($registration->consolidatedResult, ['10', 'homologado']) ) {
+            $dataprev_validation = $app->repo('RegistrationEvaluation')->findBy(['registration' => $registration, 'user' => $user]);
+            $recurso = $validador_recurso ? 
+                $app->repo('RegistrationEvaluation')->findBy(['registration' => $registration, 'user' => $validador_recurso, 'result' => '10']) :
+                null;
+
+            if($recurso || !$dataprev_validation){
+                if ($this->config['exportador_requer_homologacao']) {
+                    if (in_array($registration->consolidatedResult, ['10', 'homologado']) ) {
+                        $_regs[] = $registration;
+                    }
+                } else {
                     $_regs[] = $registration;
                 }
-            } else {
-                $_regs[] = $registration;
             }
         }
         
