@@ -676,7 +676,7 @@ class Controller extends \MapasCulturais\Controllers\Registration
                 e.sentTimestamp >=:startDate AND
                 e.sentTimestamp <= :finishDate AND
                 e.status = :status AND
-                e.opportunity = :opportunities_id";
+                e.opportunity IN (:opportunities_id)";
 
             $query = $app->em->createQuery($dql);
             $query->setParameters([
@@ -695,7 +695,7 @@ class Controller extends \MapasCulturais\Controllers\Registration
                 MapasCulturais\Entities\Registration e
             WHERE
                 e.status = :status AND
-                e.opportunity = :opportunities_id";
+                e.opportunity IN(:opportunities_id)";
 
             $query = $app->em->createQuery($dql);
             $query->setParameters([
