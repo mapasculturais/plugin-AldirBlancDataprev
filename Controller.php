@@ -523,7 +523,7 @@ class Controller extends \MapasCulturais\Controllers\Registration
             }
         }
 
-        $file_name = 'inciso1-' . md5(json_encode($data)) . '.csv';
+        $file_name = 'inciso1-'.$opportunity_id."-". md5(json_encode($data)) . '.csv';
 
         $dir = PRIVATE_FILES_PATH . 'aldirblanc/inciso1/';
 
@@ -575,7 +575,7 @@ class Controller extends \MapasCulturais\Controllers\Registration
         $inciso2_opportunity_ids = $this->config['inciso2_opportunity_ids'];
         
         $opportunity_ids = [];
-
+        $oppId = "";
         //Oportunidades que a query deve filtrar
         $opportunities = [];
         if (isset($this->data['project'])) {
@@ -594,6 +594,8 @@ class Controller extends \MapasCulturais\Controllers\Registration
             }
             $opportunity_ids = [$this->data['opportunity']];
             $opportunities = [$app->repo('Opportunity')->find($this->data['opportunity'])];
+            $oppId = $this->data['opportunity']."-";
+
         } else {
             echo 'informe a oportunidede (opportunity=id) ou o projeto (project=id)';
             die;
@@ -1720,7 +1722,7 @@ class Controller extends \MapasCulturais\Controllers\Registration
 
         //Cria o CSV para pessoa jurídica
         if ($type == 'cnpj') {
-            $file_name = 'inciso2-CNPJ-' . md5(json_encode($data_candidate_cnpj)) . '.csv';
+            $file_name = 'inciso2-CNPJ-'.$oppId. md5(json_encode($data_candidate_cnpj)) . '.csv';
 
             $dir = PRIVATE_FILES_PATH . 'aldirblanc/inciso2/cnpj/';
 
@@ -1754,7 +1756,7 @@ class Controller extends \MapasCulturais\Controllers\Registration
 
         //Cria o CSV para pessoa física
         if ($type == 'cpf') {
-            $file_name = 'inciso2-CPF-' . md5(json_encode($data_candidate_cpf)) . '.csv';
+            $file_name = 'inciso2-CPF-'.$oppId. md5(json_encode($data_candidate_cpf)) . '.csv';
 
             $dir = PRIVATE_FILES_PATH . 'aldirblanc/inciso2/cpf/';
 
