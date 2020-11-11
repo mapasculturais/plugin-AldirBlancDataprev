@@ -370,10 +370,10 @@ return [ //Configuração dos campos
         ],
         'IN_MULH_PROV_MONOPARENT' => [
             'positive' => [
-                'Não',
+                'Não','Sim',
             ],
             'negative' => [
-                'Sim',
+                
             ],
             'response' => 'No preenchimento do Formulário de Inscrição, o requerente não atendeu ao § 2º do Art. 6º da Lei 14.017/2020 e ao Inciso II do Art. 3º do Decreto nº 10.464/2020.',
             'impediment' => true,
@@ -381,10 +381,10 @@ return [ //Configuração dos campos
         ],
         'IND_MONOPARENTAL_OUTRO_REQUERIMENTO' => [
             'positive' => [
-                'Não',
+                'Não','Sim',
             ],
             'negative' => [
-                'Sim',
+                
             ],
             'response' => 'No preenchimento do Formulário de Inscrição, o requerente não atendeu ao § 2º do Art. 6º da Lei 14.017/2020 e ao Inciso II do Art. 3º do Decreto nº 10.464/2020.',
             'impediment' => true,
@@ -392,10 +392,10 @@ return [ //Configuração dos campos
         ],
         'CPF_OUTRO_REQUERENTE_CONJUGE_INFORMADO' => [
             'positive' => [
-                'Não',
+                'Não','Sim',''
             ],
             'negative' => [
-                'Sim',
+                
             ],
             'response' => 'No preenchimento do Formulário de Inscrição, o requerente não atendeu ao § 2º do Art. 6º da Lei 14.017/2020 e ao Inciso II do Art. 3º do Decreto nº 10.464/2020.',
             'impediment' => true,

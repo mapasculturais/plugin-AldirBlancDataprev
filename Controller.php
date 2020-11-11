@@ -2265,17 +2265,16 @@ class Controller extends \MapasCulturais\Controllers\Registration
             'reg_ids' => $registrat_ids
         ]);
 
-        $agent_names = [];
+        // $agent_names = [];
 
-        foreach($query->getScalarResult() as $r) {
-            $data = json_decode($r['_agentsData']);
-            $agent_names[$r['number']] = $data->owner->nomeCompleto;
-        };
+        // foreach($query->getScalarResult() as $r) {
+        //     $data = json_decode($r['_agentsData']);
+        //     $agent_names[$r['number']] = $data->owner->nomeCompleto;
+        // };
         $raw_data_by_num = [];
         // return;
         foreach ($results as $results_key => $result) {
             $raw_data_by_num[$result['IDENTIF_CAD_ESTAD_CULT']] = $result;
-            
             $candidate = $result;
             foreach ($candidate as $key_candidate => $value) {
                 if(in_array($key_candidate, $conf_csv['validation_cad_cultural'])) {
@@ -2398,6 +2397,9 @@ class Controller extends \MapasCulturais\Controllers\Registration
             $count++;
             
             $registration = $app->repo('Registration')->findOneBy(['number' => $r['N_INSCRICAO']]);
+            if (!$registration){
+                continue;
+            }
             $registration->__skipQueuingPCacheRecreation = true;
             
             /* @TODO: implementar atualização de status?? */
@@ -2566,12 +2568,12 @@ class Controller extends \MapasCulturais\Controllers\Registration
             'reg_ids' => $registrat_ids
         ]);
 
-        $agent_names = [];
+        // $agent_names = [];
 
-        foreach($query->getScalarResult() as $r) {
-            $data = json_decode($r['_agentsData']);
-            $agent_names[$r['number']] = $data->owner->nomeCompleto;
-        };
+        // foreach($query->getScalarResult() as $r) {
+        //     $data = json_decode($r['_agentsData']);
+        //     $agent_names[$r['number']] = $data->owner->nomeCompleto;
+        // };
        
         $raw_data_by_num = [];
         // return;
@@ -2682,6 +2684,9 @@ class Controller extends \MapasCulturais\Controllers\Registration
             $count++;
             
             $registration = $app->repo('Registration')->findOneBy(['number' => $r['N_INSCRICAO']]);
+            if (!$registration){
+                continue;
+            }
             $registration->__skipQueuingPCacheRecreation = true;
             
             /* @TODO: implementar atualização de status?? */
@@ -2718,6 +2723,9 @@ class Controller extends \MapasCulturais\Controllers\Registration
             $count++;
 
             $registration = $app->repo('Registration')->findOneBy(['number' => $r['N_INSCRICAO']]);
+            if (!$registration){
+                continue;
+            }
             $registration->__skipQueuingPCacheRecreation = true;
             
             if ($registration->dataprev_raw != (object) []) {
