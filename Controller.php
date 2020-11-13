@@ -2833,13 +2833,15 @@ class Controller extends \MapasCulturais\Controllers\Registration
                 $evaluation->save(true);
                 $app->log->info('evaluation_data para ' . $rm->owner . 'alterada para '. $evaluation->evaluationData->obs); 
             }
+            if (is_object($rm->owner->dataprev_raw)){
+                $rm->owner->dataprev_monoparental = strtolower($rm->owner->dataprev_raw->IN_MULH_PROV_MONOPARENT) == 'sim';
+                $rm->owner->dataprev_outro_conjuge = strtolower($rm->owner->dataprev_raw->IND_MONOPARENTAL_OUTRO_REQUERIMENTO) == 'sim';
+                $rm->owner->dataprev_cpf_outro_conjuge = $rm->owner->dataprev_raw->CPF_OUTRO_REQUERENTE_CONJUGE_INFORMADO;
+                $app->disableAccessControl();
+                $rm->owner->save(true);       
+                $app->enableAccessControl();
+            }
             
-            $rm->owner->dataprev_monoparental = strtolower($rm->owner->dataprev_raw->IN_MULH_PROV_MONOPARENT) == 'sim';
-            $rm->owner->dataprev_outro_conjuge = strtolower($rm->owner->dataprev_raw->IND_MONOPARENTAL_OUTRO_REQUERIMENTO) == 'sim';
-            $rm->owner->dataprev_cpf_outro_conjuge = $rm->owner->dataprev_raw->CPF_OUTRO_REQUERENTE_CONJUGE_INFORMADO;
-            $app->disableAccessControl();
-            $rm->owner->save(true);       
-            $app->enableAccessControl();
         }
     }
 }
