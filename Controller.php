@@ -2782,4 +2782,64 @@ class Controller extends \MapasCulturais\Controllers\Registration
         $value = Normalizer::normalize($value, Normalizer::FORM_D);
        return preg_replace('/[^a-z0-9 ]/i', '', $value);
     }
+
+    /**
+    * Fix para inscrições com flag monoparental 
+    *
+    * rota: /dataprev/fiximportmono
+    *
+    * @return void
+    */
+    function GET_fiximportmono()
+    {
+        $this->requireAuthentication();
+        $app = App::i();       
+        if (!$app->user->is('admin')){
+            return;
+        }
+        $plugin = $app->plugins['AldirBlancDataprev'];
+        $user_dataprev = $plugin->getUser();
+
+        // pegar inscrições com alguma flag monoparenta = sim
+        $dql = "SELECT rm, r from MapasCulturais\\Entities\\RegistrationMeta rm 
+        JOIN rm.owner r
+        WHERE rm.key = 'dataprev_raw'
+        AND rm.value like '%\"IN_MULH_PROV_MONOPARENT\":\"Sim\"%'
+        OR  rm.value like '%\"IND_MONOPARENTAL_OUTRO_REQUERIMENTO\":\"Sim\"%'";
+        $query = $app->em->createQuery($dql);
+        $registrationsMeta = $query->getResult();
+        $haystack = 'No preenchimento do Formulário de Inscrição, o requerente não atendeu ao § 2º do Art. 6º da Lei 14.017/2020 e ao Inciso II do Art. 3º do Decreto nº 10.464/2020.';
+        foreach ( $registrationsMeta as $rm ){
+            $evaluation = $app->repo('RegistrationEvaluation')->findOneBy(['registration' => $rm->owner, 'user' => $user_dataprev]);
+            if ($evaluation->evaluationData->obs == $haystack){
+                $evaluation->result = '10';
+                $evaluationData = $evaluation->evaluationData;
+                $evaluationData->status = '10';
+                $evaluationData->obs = 'Selecionada';
+                $evaluation->evaluationData = $evaluationData;
+                $evaluation->save(true);
+                $app->log->info('Avaliação para ' . $rm->owner . 'alterada para '. $evaluation->result); 
+                $app->log->info('evaluation_data para ' . $rm->owner . 'alterada para '. $evaluation->evaluationData->obs); 
+
+            } 
+            else if(strpos($evaluation->evaluationData->obs, $haystack) !== false ){
+                $evaluationData = $evaluation->evaluationData;
+                $evaluationData->obs = str_replace (
+                    $haystack,
+                    '',
+                    $evaluation->evaluationData->obs
+                );
+                $evaluation->evaluationData = $evaluationData;
+                $evaluation->save(true);
+                $app->log->info('evaluation_data para ' . $rm->owner . 'alterada para '. $evaluation->evaluationData->obs); 
+            }
+            
+            $rm->owner->dataprev_monoparental = strtolower($rm->owner->dataprev_raw->IN_MULH_PROV_MONOPARENT) == 'sim';
+            $rm->owner->dataprev_outro_conjuge = strtolower($rm->owner->dataprev_raw->IND_MONOPARENTAL_OUTRO_REQUERIMENTO) == 'sim';
+            $rm->owner->dataprev_cpf_outro_conjuge = $rm->owner->dataprev_raw->CPF_OUTRO_REQUERENTE_CONJUGE_INFORMADO;
+            $app->disableAccessControl();
+            $rm->owner->save(true);       
+            $app->enableAccessControl();
+        }
+    }
 }
