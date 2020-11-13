@@ -2272,12 +2272,26 @@ class Controller extends \MapasCulturais\Controllers\Registration
         //     $agent_names[$r['number']] = $data->owner->nomeCompleto;
         // };
         $raw_data_by_num = [];
+        
+        $set_monoparental = function(Registration $registration) {
+            $raw_data = $registration->dataprev_raw;
+
+            $registration->dataprev_monoparental = strtolower($raw_data->IN_MULH_PROV_MONOPARENT) == 'sim';
+            $registration->dataprev_outro_conjuge = strtolower($raw_data->IND_MONOPARENTAL_OUTRO_REQUERIMENTO) == 'sim';
+            $registration->dataprev_cpf_outro_conjuge = $raw_data->CPF_OUTRO_REQUERENTE_CONJUGE_INFORMADO;
+        };
+
         // return;
         foreach ($results as $results_key => $result) {
             $raw_data_by_num[$result['IDENTIF_CAD_ESTAD_CULT']] = $result;
             $candidate = $result;
             foreach ($candidate as $key_candidate => $value) {
                 if(in_array($key_candidate, $conf_csv['validation_cad_cultural'])) {
+                    continue;
+                }
+
+                // se for um dos campos de identificação de mulher provedora monoparental, continua
+                if(in_array($key_candidate, ['IN_MULH_PROV_MONOPARENT', 'IND_MONOPARENTAL_OUTRO_REQUERIMENTO', 'CPF_OUTRO_REQUERENTE_CONJUGE_INFORMADO'])) {
                     continue;
                 }
 
@@ -2410,9 +2424,12 @@ class Controller extends \MapasCulturais\Controllers\Registration
             
             $app->log->info("Dataprev #{$count} {$registration} APROVADA");
             
-            $registration->dataprev_raw = $raw_data_by_num[$registration->number];
+            $registration->dataprev_raw = (object) $raw_data_by_num[$registration->number];
             $registration->dataprev_processed = $r;
             $registration->dataprev_filename = $filename;
+
+            $set_monoparental($registration);
+
             $registration->save(true);
     
             $user = $app->plugins['AldirBlancDataprev']->getUser();
@@ -2448,9 +2465,12 @@ class Controller extends \MapasCulturais\Controllers\Registration
 
             $app->log->info("Dataprev #{$count} {$registration} REPROVADA");
 
-            $registration->dataprev_raw = $raw_data_by_num[$registration->number];
+            $registration->dataprev_raw = (object) $raw_data_by_num[$registration->number];
             $registration->dataprev_processed = $r;
             $registration->dataprev_filename = $filename;
+
+            $set_monoparental($registration);
+
             $registration->save(true);
 
             $user = $app->plugins['AldirBlancDataprev']->getUser();

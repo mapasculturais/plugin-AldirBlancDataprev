@@ -105,6 +105,26 @@ class Plugin extends \AldirBlanc\PluginValidador
             'default_value' => '{}'
         ]);
 
+        $this->registerRegistrationMetadata('dataprev_monoparental', [
+            'label' => 'Dataprev - Mulher Provedora de Família Monoparental',
+            'type' => 'boolean',
+            'private' => true,
+            'default_value' => false
+        ]);
+        $this->registerRegistrationMetadata('dataprev_outro_conjuge', [
+            'label' => 'Dataprev - CPF consta no cadastro de outro conjuge',
+            'type' => 'boolean',
+            'private' => true,
+            'default_value' => false
+        ]);
+        
+        $this->registerRegistrationMetadata('dataprev_cpf_outro_conjuge', [
+            'label' => 'Dataprev - CPF do outro conjuge',
+            'type' => 'boolean',
+            'private' => true,
+            'default_value' => false
+        ]);
+
         $file_group_definition = new \MapasCulturais\Definitions\FileGroup('dataprev', ['^text/csv$'], 'O arquivo enviado não é um csv.',false,null,true);
         $app->registerFileGroup('opportunity', $file_group_definition);
 
