@@ -2417,7 +2417,7 @@ class Controller extends \MapasCulturais\Controllers\Registration
             $registration->__skipQueuingPCacheRecreation = true;
             
             /* @TODO: implementar atualização de status?? */
-            if ($registration->dataprev_raw != (object) []) {
+            if ($registration->dataprev_raw != (object) [] && !in_array('Reprocessado,', $r['REASONS'])) {
                 $app->log->info("Dataprev #{$count} {$registration} APROVADA - JÁ PROCESSADA");
                 continue;
             }
@@ -2435,15 +2435,25 @@ class Controller extends \MapasCulturais\Controllers\Registration
             $user = $app->plugins['AldirBlancDataprev']->getUser();
 
             /* @TODO: versão para avaliação documental */
-            $evaluation = new RegistrationEvaluation;
+            if(!($evaluation = $app->repo('RegistrationEvaluation')->findOneBy(['registration' => $registration, "user" => $user]))){
+                $evaluation = new RegistrationEvaluation;
+                $evaluation->user = $user;
+                $evaluation->registration = $registration;               
+                $evaluation->status = 1;
+            }
+            
             $evaluation->__skipQueuingPCacheRecreation = true;
-            $evaluation->user = $user;
-            $evaluation->registration = $registration;
             $evaluation->evaluationData = ['status' => "10", "obs" => 'selecionada'];
             $evaluation->result = "10";
-            $evaluation->status = 1;
+           
 
             $evaluation->save(true);
+
+            //Altera os status da registration caso seja um reprocessamento
+            if(in_array('Reprocessado,', $r['REASONS'])){
+                $registration->status = 2;
+                $registration->save(true);
+            }
 
             $app->em->clear();
 
@@ -2451,18 +2461,18 @@ class Controller extends \MapasCulturais\Controllers\Registration
 
         foreach($reprovados as $r) {
             $count++;
-
+           
             $registration = $app->repo('Registration')->findOneBy(['number' => $r['N_INSCRICAO']]);
             if (!$registration){
                 continue;
             }
             $registration->__skipQueuingPCacheRecreation = true;
             
-            if ($registration->dataprev_raw != (object) []) {
+            if ($registration->dataprev_raw != (object) [] && !in_array('Reprocessado,', $r['REASONS'])) {
                 $app->log->info("Dataprev #{$count} {$registration} REPROVADA - JÁ PROCESSADA");
                 continue;
             }
-
+            
             $app->log->info("Dataprev #{$count} {$registration} REPROVADA");
 
             $registration->dataprev_raw = (object) $raw_data_by_num[$registration->number];
@@ -2476,15 +2486,25 @@ class Controller extends \MapasCulturais\Controllers\Registration
             $user = $app->plugins['AldirBlancDataprev']->getUser();
 
             /* @TODO: versão para avaliação documental */
-            $evaluation = new RegistrationEvaluation;
+            if(!($evaluation = $app->repo('RegistrationEvaluation')->findOneBy(['registration' => $registration, "user" => $user]))){
+                $evaluation = new RegistrationEvaluation;
+                $evaluation->user = $user;
+                $evaluation->registration = $registration;               
+                $evaluation->status = 1;
+            }
+            
+                       
             $evaluation->__skipQueuingPCacheRecreation = true;
-            $evaluation->user = $user;
-            $evaluation->registration = $registration;
             $evaluation->evaluationData = ['status' => "2", "obs" => implode("\\n", $r['REASONS'])];
             $evaluation->result = "2";
-            $evaluation->status = 1;
 
-            $evaluation->save(true); 
+            $evaluation->save(true);   
+            
+            //Altera os status da registration caso seja um reprocessamento
+            if(in_array('Reprocessado,', $r['REASONS'])){
+                $registration->status = 2;
+                $registration->save(true);
+            }
 
             $app->em->clear();
 
@@ -2710,7 +2730,7 @@ class Controller extends \MapasCulturais\Controllers\Registration
             $registration->__skipQueuingPCacheRecreation = true;
             
             /* @TODO: implementar atualização de status?? */
-            if ($registration->dataprev_raw != (object) []) {
+            if ($registration->dataprev_raw != (object) [] && !in_array('Reprocessado,', $r['REASONS'])) {
                 $app->log->info("Dataprev #{$count} {$registration} APROVADA - JÁ PROCESSADA");
                 continue;
             }
@@ -2724,16 +2744,26 @@ class Controller extends \MapasCulturais\Controllers\Registration
     
             $user = $app->plugins['AldirBlancDataprev']->getUser();
 
-            /* @TODO: versão para avaliação documental */
-            $evaluation = new RegistrationEvaluation;
-            $evaluation->__skipQueuingPCacheRecreation = true;
-            $evaluation->user = $user;
-            $evaluation->registration = $registration;
-            $evaluation->evaluationData = ['status' => "10", "obs" => 'selecionada'];
-            $evaluation->result = "10";
-            $evaluation->status = 1;
-
-            $evaluation->save(true);
+                /* @TODO: versão para avaliação documental */
+                if(!($evaluation = $app->repo('RegistrationEvaluation')->findOneBy(['registration' => $registration, "user" => $user]))){
+                    $evaluation = new RegistrationEvaluation;
+                    $evaluation->user = $user;
+                    $evaluation->registration = $registration;               
+                    $evaluation->status = 1;
+                }
+                
+                $evaluation->__skipQueuingPCacheRecreation = true;
+                $evaluation->evaluationData = ['status' => "10", "obs" => 'selecionada'];
+                $evaluation->result = "10";
+               
+    
+                $evaluation->save(true);
+    
+                //Altera os status da registration caso seja um reprocessamento
+                if(in_array('Reprocessado,', $r['REASONS'])){
+                    $registration->status = 2;
+                    $registration->save(true);
+                }
 
             $app->em->clear();
 
@@ -2748,7 +2778,7 @@ class Controller extends \MapasCulturais\Controllers\Registration
             }
             $registration->__skipQueuingPCacheRecreation = true;
             
-            if ($registration->dataprev_raw != (object) []) {
+            if ($registration->dataprev_raw != (object) [] && !in_array('Reprocessado,', $r['REASONS'])) {
                 $app->log->info("Dataprev #{$count} {$registration} REPROVADA - JÁ PROCESSADA");
                 continue;
             }
@@ -2762,16 +2792,26 @@ class Controller extends \MapasCulturais\Controllers\Registration
 
             $user = $app->plugins['AldirBlancDataprev']->getUser();
 
-            /* @TODO: versão para avaliação documental */
-            $evaluation = new RegistrationEvaluation;
+             /* @TODO: versão para avaliação documental */
+             if(!($evaluation = $app->repo('RegistrationEvaluation')->findOneBy(['registration' => $registration, "user" => $user]))){
+                $evaluation = new RegistrationEvaluation;
+                $evaluation->user = $user;
+                $evaluation->registration = $registration;               
+                $evaluation->status = 1;
+            }
+            
+                       
             $evaluation->__skipQueuingPCacheRecreation = true;
-            $evaluation->user = $user;
-            $evaluation->registration = $registration;
             $evaluation->evaluationData = ['status' => "2", "obs" => implode("\\n", $r['REASONS'])];
             $evaluation->result = "2";
-            $evaluation->status = 1;
 
-            $evaluation->save(true); 
+            $evaluation->save(true);   
+            
+            //Altera os status da registration caso seja um reprocessamento
+            if(in_array('Reprocessado,', $r['REASONS'])){
+                $registration->status = 2;
+                $registration->save(true);
+            }
 
             $app->em->clear();
 
