@@ -2417,7 +2417,7 @@ class Controller extends \MapasCulturais\Controllers\Registration
             $registration->__skipQueuingPCacheRecreation = true;
             
             /* @TODO: implementar atualização de status?? */
-            if ($registration->dataprev_raw != (object) [] && !in_array('Reprocessado,', $r['REASONS'])) {
+            if ($registration->dataprev_raw != (object) []) {
                 $app->log->info("Dataprev #{$count} {$registration} APROVADA - JÁ PROCESSADA");
                 continue;
             }
@@ -2445,15 +2445,8 @@ class Controller extends \MapasCulturais\Controllers\Registration
             $evaluation->__skipQueuingPCacheRecreation = true;
             $evaluation->evaluationData = ['status' => "10", "obs" => 'selecionada'];
             $evaluation->result = "10";
-           
-
+            
             $evaluation->save(true);
-
-            //Altera os status da registration caso seja um reprocessamento
-            if(in_array('Reprocessado,', $r['REASONS'])){
-                $registration->status = 2;
-                $registration->save(true);
-            }
 
             $app->em->clear();
 
@@ -2493,7 +2486,6 @@ class Controller extends \MapasCulturais\Controllers\Registration
                 $evaluation->status = 1;
             }
             
-                       
             $evaluation->__skipQueuingPCacheRecreation = true;
             $evaluation->evaluationData = ['status' => "2", "obs" => implode("\\n", $r['REASONS'])];
             $evaluation->result = "2";
@@ -2730,7 +2722,7 @@ class Controller extends \MapasCulturais\Controllers\Registration
             $registration->__skipQueuingPCacheRecreation = true;
             
             /* @TODO: implementar atualização de status?? */
-            if ($registration->dataprev_raw != (object) [] && !in_array('Reprocessado,', $r['REASONS'])) {
+            if ($registration->dataprev_raw != (object) []) {
                 $app->log->info("Dataprev #{$count} {$registration} APROVADA - JÁ PROCESSADA");
                 continue;
             }
