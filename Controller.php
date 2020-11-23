@@ -2736,27 +2736,19 @@ class Controller extends \MapasCulturais\Controllers\Registration
     
             $user = $app->plugins['AldirBlancDataprev']->getUser();
 
-                /* @TODO: versão para avaliação documental */
-                if(!($evaluation = $app->repo('RegistrationEvaluation')->findOneBy(['registration' => $registration, "user" => $user]))){
-                    $evaluation = new RegistrationEvaluation;
-                    $evaluation->user = $user;
-                    $evaluation->registration = $registration;               
-                    $evaluation->status = 1;
-                }
-                
-                $evaluation->__skipQueuingPCacheRecreation = true;
-                $evaluation->evaluationData = ['status' => "10", "obs" => 'selecionada'];
-                $evaluation->result = "10";
-               
-    
-                $evaluation->save(true);
-    
-                //Altera os status da registration caso seja um reprocessamento
-                if(in_array('Reprocessado,', $r['REASONS'])){
-                    $registration->status = 2;
-                    $registration->save(true);
-                }
+            /* @TODO: versão para avaliação documental */
+            if(!($evaluation = $app->repo('RegistrationEvaluation')->findOneBy(['registration' => $registration, "user" => $user]))){
+                $evaluation = new RegistrationEvaluation;
+                $evaluation->user = $user;
+                $evaluation->registration = $registration;               
+                $evaluation->status = 1;
+            }
+            
+            $evaluation->__skipQueuingPCacheRecreation = true;
+            $evaluation->evaluationData = ['status' => "10", "obs" => 'selecionada'];
+            $evaluation->result = "10";
 
+            $evaluation->save(true);
             $app->em->clear();
 
         }
