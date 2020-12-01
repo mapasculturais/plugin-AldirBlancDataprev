@@ -1,6 +1,8 @@
 
 ## [Unreleased]
-- Aplica correção nos exportador Dataprev, para garantir que no seja inserido caracteres especiais no nome do espeço cultural (Ref. [#17](https://github.com/mapasculturais/plugin-AldirBlancDataprev/issues/17))
+
+## [1.0.1] - 2020-11-24
+- Aplica correção nos exportador Dataprev, para garantir que no seja inserido caracteres especiais no nome do espaço cultural (Ref. [#17](https://github.com/mapasculturais/plugin-AldirBlancDataprev/issues/17))
 - Aplica correção nos exportadores Dataprev para que permita somente número em campos de CPF e CNPJ (Ref. [#17](https://github.com/mapasculturais/plugin-AldirBlancDataprev/issues/17))
 
 ## [1.0.0] - 2020-11-24
