@@ -297,7 +297,8 @@ class Controller extends \MapasCulturais\Controllers\Registration
         $fields = [
             "CPF" => function ($registrations) use ($csv_conf) {
                 $field_id = $csv_conf["CPF"];
-                return str_replace(['.', '-'], '', $registrations->$field_id);
+                $result = str_replace(['.', '-'], '', $registrations->$field_id);
+                return preg_replace('/[^0-9]/i', '', $result);
 
             },
             'SEXO' => function ($registrations) use ($csv_conf) {
@@ -883,7 +884,8 @@ class Controller extends \MapasCulturais\Controllers\Registration
             $fields_cpf_ = [
                 'CPF' => function ($registrations) use ($fields_cpf) {
                     $field_id = $fields_cpf['CPF'];
-                    return str_replace(['.', '-'], '', $registrations->$field_id);
+                    $result = str_replace(['.', '-'], '', $registrations->$field_id);
+                    return preg_replace('/[^0-9]/i', '', $result);
 
                 },
                 'SEXO' => function ($registrations) use ($fields_cpf) {
@@ -919,7 +921,7 @@ class Controller extends \MapasCulturais\Controllers\Registration
 
                     }
 
-                    return $result;
+                    return $this->normalizeString(trim($result));
                 },
                 'FLAG_CAD_ESTADUAL' => function ($registrations) use ($fields_cpf, $inscricoes) {
                     $field_id = $fields_cpf["FLAG_CAD_ESTADUAL"];
@@ -1329,10 +1331,11 @@ class Controller extends \MapasCulturais\Controllers\Registration
                         $field_id = $field_temp;
                     }
                     if ($field_id){
-                        return str_replace(['.', '-', '/'], '', $registrations->$field_id);
+                        $result =  str_replace(['.', '-', '/'], '', $registrations->$field_id);
                     } else {
-                        return null;
+                        $result = null;
                     }
+                    return preg_replace('/[^0-9]/i', '', $result);
 
                 }, 'FLAG_CAD_ESTADUAL' => function ($registrations) use ($fields_cnpj, $inscricoes) {
                     $field_id = $fields_cnpj["FLAG_CAD_ESTADUAL"];
@@ -2881,7 +2884,7 @@ class Controller extends \MapasCulturais\Controllers\Registration
     private function normalizeString($value): string
     {
         $value = Normalizer::normalize($value, Normalizer::FORM_D);
-       return preg_replace('/[^a-z0-9 ]/i', '', $value);
+       return preg_replace('/[^A-Za-z0-9 ]/i', '', $value);
     }
 
     /**
