@@ -26,6 +26,60 @@ class Controller extends \MapasCulturais\Controllers\Registration
 {
     protected $config = [];
 
+    protected $cpfs_invalidos = [
+        '85217317019',
+        '89577373089',
+        '41708443002',
+        '29504531040',
+        '69212905064',
+        '07490413079',
+        '79582057084',
+        '93256810055',
+        '53328032061',
+        '66566631097',
+        '48124965005',
+        '46746185095',  
+        '27247005033',
+        '44399079037',
+        '50456286071',
+        '64279627010',
+        '94975266016',
+        '80574583050',
+        '83153590028',
+        '57774784098',
+        '30019874057',
+        '95044208000',
+        '57203313018',
+        '91033029033',
+        '24397467030',
+        '08464415001',
+        '23688850050',
+        '07619883002',
+        '24596743096',
+        '75257812061',
+        '81404080007',
+        '26327984002',
+        '11134503040',
+        '97219643012',
+        '45685171099',
+        '61947004085',
+        '81450616011',
+        '60649552016',
+        '30869131001',
+        '37819088010',
+        '97518511061',
+        '79159486015',
+        '33017577074',
+        '12842827082',
+        '57350852045',
+        '82075354073',
+        '69608590000',
+        '19305847099',
+        '91001998006',
+        '27414955052',
+        '78004669069'
+    ];
+
     public function __construct()
     {
         parent::__construct();
@@ -449,6 +503,8 @@ class Controller extends \MapasCulturais\Controllers\Registration
          */
         $data_candidate = [];
         $data_familyGroup = [];
+        
+        $cpf_counter = 0;
         foreach ($registrations as $key_registration => $registration) {
             $cpf_candidate = '';
             foreach ($fields as $key_fields => $field) {
@@ -482,7 +538,13 @@ class Controller extends \MapasCulturais\Controllers\Registration
                                     $data_familyGroup[$key_registration][$key_familyGroup][$header] = $cpf_candidate;
 
                                 } elseif ($header == "FAMILIARCPF") {
-                                    $data_familyGroup[$key_registration][$key_familyGroup][$header] = str_replace(['.', '-'], '', $familyGroup->cpf);
+                                    $family_cpf = preg_replace('#[^\d]*#','', $familyGroup->cpf);
+                                    if (!\Respect\Validation\Validator::cpf()->validate($family_cpf)){
+                                        // utiliza um CPF com dígito verificador válido, mas não cadastrado na receita federal
+                                        $family_cpf = $this->cpfs_invalidos[$cpf_counter];
+                                        $cpf_counter++;
+                                    }
+                                    $data_familyGroup[$key_registration][$key_familyGroup][$header] = $family_cpf;
 
                                 } elseif ($header == "GRAUPARENTESCO") {
                                     $data_familyGroup[$key_registration][$key_familyGroup][$header] = $familyGroup->relationship;
@@ -2160,10 +2222,6 @@ class Controller extends \MapasCulturais\Controllers\Registration
                 }
             }
         }
-    }
-
-    function compareNames($n1, $n2) {
-
     }
 
     /**
