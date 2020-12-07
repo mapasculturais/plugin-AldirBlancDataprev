@@ -1,6 +1,7 @@
 
 ## [Unreleased]
 - Corrige importador Dataprev para reprocessar inscrições que em um primeiro momento estava, com staus 8 "Retida para avaliação" (Ref. [#16](https://github.com/mapasculturais/plugin-AldirBlancDataprev/issues/16))
+
 ## [1.0.2]
 - Corrige exportador do inciso 1 substituindo os CPFs inválidos dos familiares por CPFs válidos que não constam na base da Receita Federal
 
