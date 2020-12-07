@@ -1,6 +1,11 @@
 
 ## [Unreleased]
-- Aplica correção nos exportador Dataprev, para garantir que no seja inserido caracteres especiais no nome do espeço cultural (Ref. [#17](https://github.com/mapasculturais/plugin-AldirBlancDataprev/issues/17))
+- Corrige importador Dataprev para reprocessar inscrições que em um primeiro momento estava, com staus 8 "Retida para avaliação" (Ref. [#16](https://github.com/mapasculturais/plugin-AldirBlancDataprev/issues/16))
+## [1.0.2]
+- Corrige exportador do inciso 1 substituindo os CPFs inválidos dos familiares por CPFs válidos que não constam na base da Receita Federal
+
+## [1.0.1] - 2020-11-24
+- Aplica correção nos exportador Dataprev, para garantir que no seja inserido caracteres especiais no nome do espaço cultural (Ref. [#17](https://github.com/mapasculturais/plugin-AldirBlancDataprev/issues/17))
 - Aplica correção nos exportadores Dataprev para que permita somente número em campos de CPF e CNPJ (Ref. [#17](https://github.com/mapasculturais/plugin-AldirBlancDataprev/issues/17))
 
 ## [1.0.0] - 2020-11-24
