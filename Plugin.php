@@ -16,6 +16,8 @@ class Plugin extends \AldirBlanc\PluginValidador
             'csv_inciso1' => require_once env('AB_CSV_INCISO1', __DIR__ . '/config-csv-inciso1.php'),
             'csv_inciso2' => require_once env('AB_CSV_INCISO2', __DIR__ . '/config-csv-inciso2.php'),
             'csv_inciso3' => require_once env('AB_CSV_INCISO3', __DIR__ . '/config-csv-inciso3.php'),
+
+            'incisos' => [1,2,3]
         ];
 
         parent::__construct($config);
@@ -28,17 +30,18 @@ class Plugin extends \AldirBlanc\PluginValidador
         $plugin = $app->plugins['AldirBlanc'];
         $plugin_validador = $this;
 
+        $opportunities_ids = $this->getOpportunitiesIds($this->config['incisos']);
+
         //botao de export csv
-        $app->hook('template(opportunity.single.header-inscritos):end', function () use($plugin, $app, $plugin_validador){
+        $app->hook('template(opportunity.single.header-inscritos):end', function () use($plugin, $app, $plugin_validador, $opportunities_ids){
             $inciso1Ids = [$plugin->config['inciso1_opportunity_id']];
             $inciso2Ids = array_values($plugin->config['inciso2_opportunity_ids']);
             $inciso3Ids = is_array($plugin->config['inciso3_opportunity_ids']) ? $plugin->config['inciso3_opportunity_ids'] : [];
             
-            $opportunities_ids = array_merge($inciso1Ids, $inciso2Ids, $inciso3Ids);
             $requestedOpportunity = $this->controller->requestedEntity; //Tive que chamar o controller para poder requisitar a entity
             $opportunity = $requestedOpportunity->id;
             
-            if(($requestedOpportunity->canUser('@control')) && in_array($requestedOpportunity->id,$opportunities_ids) ) {
+            if(in_array($requestedOpportunity->id, $opportunities_ids) && $requestedOpportunity->canUser('@control')) {
                 $app->view->enqueueScript('app', 'aldirblanc', 'aldirblanc/app.js');
                 if (in_array($requestedOpportunity->id, $inciso1Ids)){
                     $inciso = 1;
@@ -56,17 +59,11 @@ class Plugin extends \AldirBlanc\PluginValidador
             }
         });
 
-        $app->hook('template(project.single.entity-opportunities):before', function () use($plugin, $plugin_validador) {
-            $project = $this->controller->requestedEntity;
-
-            $this->part('aldirblanc/project-csv-buttons', ['project' => $project, 'plugin' => $plugin, 'plugin_validador' => $plugin_validador]);
-
-        });
-
         // uploads de CSVs 
-        $app->hook('template(opportunity.<<single|edit>>.sidebar-right):end', function () {
+        $app->hook('template(opportunity.<<single|edit>>.sidebar-right):end', function () use($opportunities_ids) {
             $opportunity = $this->controller->requestedEntity; 
-            if($opportunity->canUser('@control')){
+
+            if(in_array($opportunity->id, $opportunities_ids) && $opportunity->canUser('@control')){
                 $this->part('aldirblanc/dataprev-uploads', ['entity' => $opportunity]);
             }
         });
