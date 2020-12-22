@@ -1,5 +1,7 @@
 
 ## [Unreleased]
+- Adiciona MIME type enviado pelo Windows ao file group dos retornos do Dataprev (Ref. [#18](https://github.com/mapasculturais/plugin-AldirBlancDataprev/issues/18))
+- Corrige importador Dataprev para reprocessar inscrições que em um primeiro momento estava, com staus 8 "Retida para avaliação" (Ref. [#16](https://github.com/mapasculturais/plugin-AldirBlancDataprev/issues/16))
 
 ## [1.0.2]
 - Corrige exportador do inciso 1 substituindo os CPFs inválidos dos familiares por CPFs válidos que não constam na base da Receita Federal

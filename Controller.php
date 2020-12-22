@@ -2355,6 +2355,10 @@ class Controller extends \MapasCulturais\Controllers\Registration
                     continue;
                 }
 
+                if ($key_candidate == 'SITUACAO_CADASTRO') {
+                    $evaluation[$results_key]['DADOS_DO_REQUERENTE']['SITUACAO_CADASTRO'] = $value;
+                }
+
                 if ($key_candidate == 'IDENTIF_CAD_ESTAD_CULT') {
                     $evaluation[$results_key]['DADOS_DO_REQUERENTE']['N_INSCRICAO'] = $value;
                 }
@@ -2441,6 +2445,7 @@ class Controller extends \MapasCulturais\Controllers\Registration
             if (!$result_validation) {
                 $result_aptUnfit[$key_evaluetion] = $value['DADOS_DO_REQUERENTE'];
                 $result_aptUnfit[$key_evaluetion]['ACCEPT'] = true;
+                $result_aptUnfit[$key_evaluetion]['REASONS'][] = '';
             } else {
                 $result_aptUnfit[$key_evaluetion] = $value['DADOS_DO_REQUERENTE'];                
                 $result_aptUnfit[$key_evaluetion]['ACCEPT'] = false;
@@ -2474,11 +2479,14 @@ class Controller extends \MapasCulturais\Controllers\Registration
             if (!$registration){
                 continue;
             }
-            $registration->__skipQueuingPCacheRecreation = true;
+            $registration->__skipQueuingPCacheRecreation = true;            
             
+            $data = $registration->dataprev_raw;
+            $statusAtual = array_search($data->SITUACAO_CADASTRO, $this->statusCodeDataprev());
+
             /* @TODO: implementar atualização de status?? */
-            if ($registration->dataprev_raw != (object) []) {
-                $app->log->info("Dataprev #{$count} {$registration} APROVADA - JÁ PROCESSADA");
+            if ($registration->dataprev_raw != (object) [] && !$this->reprocess($r)) {
+                $app->log->info("Dataprev #{$count} {$registration} APROVADA - JÁ PROCESSADA O STATUS ATUAL É {$statusAtual}");
                 continue;
             }
             
@@ -2514,15 +2522,16 @@ class Controller extends \MapasCulturais\Controllers\Registration
 
         foreach($reprovados as $r) {
             $count++;
-           
             $registration = $app->repo('Registration')->findOneBy(['number' => $r['N_INSCRICAO']]);
             if (!$registration){
                 continue;
             }
             $registration->__skipQueuingPCacheRecreation = true;
-            
-            if ($registration->dataprev_raw != (object) [] && !in_array('Reprocessado,', $r['REASONS'])) {
-                $app->log->info("Dataprev #{$count} {$registration} REPROVADA - JÁ PROCESSADA");
+            $data = $registration->dataprev_raw;
+            $statusAtual = array_search($data->SITUACAO_CADASTRO, $this->statusCodeDataprev());
+
+            if ($registration->dataprev_raw != (object) [] && !$this->reprocess($r)) {
+                $app->log->info("Dataprev #{$count} {$registration} REPROVADA - JÁ PROCESSADA O STATUS ATUAL É {$statusAtual}");
                 continue;
             }
             
@@ -2676,6 +2685,10 @@ class Controller extends \MapasCulturais\Controllers\Registration
             $candidate = $result;
             foreach ($candidate as $key_candidate => $value) {                
                 
+                if ($key_candidate == 'SITUACAO_CADASTRO') {
+                    $evaluation[$results_key]['DADOS_DO_REQUERENTE']['SITUACAO_CADASTRO'] = $value;
+                }
+                
                 if ($key_candidate == $conf_csv['RegisterNumber']) {
                     $evaluation[$results_key]['DADOS_DO_REQUERENTE']['N_INSCRICAO'] = $value;
                 }
@@ -2745,6 +2758,7 @@ class Controller extends \MapasCulturais\Controllers\Registration
             if (!$result_validation) {
                 $result_aptUnfit[$key_evaluetion] = $value['DADOS_DO_REQUERENTE'];
                 $result_aptUnfit[$key_evaluetion]['ACCEPT'] = true;
+                $result_aptUnfit[$key_evaluetion]['REASONS'][] = '';
             } else {
                 $result_aptUnfit[$key_evaluetion] = $value['DADOS_DO_REQUERENTE'];                
                 $result_aptUnfit[$key_evaluetion]['ACCEPT'] = false;
@@ -2781,11 +2795,14 @@ class Controller extends \MapasCulturais\Controllers\Registration
             }
             $registration->__skipQueuingPCacheRecreation = true;
             
-            /* @TODO: implementar atualização de status?? */
-            if ($registration->dataprev_raw != (object) []) {
-                $app->log->info("Dataprev #{$count} {$registration} APROVADA - JÁ PROCESSADA");
+            /* @TODO: implementar atualização de status?? */            
+            $data = $registration->dataprev_raw;
+            $statusAtual = array_search($data->SITUACAO_CADASTRO, $this->statusCodeDataprev());
+
+            if ($registration->dataprev_raw != (object) [] && !$this->reprocess($r)) {
+                $app->log->info("Dataprev #{$count} {$registration} REPROVADA - JÁ PROCESSADA O STATUS ATUAL É {$statusAtual}");
                 continue;
-            }
+            }      
             
             $app->log->info("Dataprev #{$count} {$registration} APROVADA");
             
@@ -2814,19 +2831,23 @@ class Controller extends \MapasCulturais\Controllers\Registration
         }
 
         foreach($reprovados as $r) {
-            $count++;
-
+            $count++;           
+           
             $registration = $app->repo('Registration')->findOneBy(['number' => $r['N_INSCRICAO']]);
             if (!$registration){
                 continue;
             }
             $registration->__skipQueuingPCacheRecreation = true;
             
-            if ($registration->dataprev_raw != (object) [] && !in_array('Reprocessado,', $r['REASONS'])) {
-                $app->log->info("Dataprev #{$count} {$registration} REPROVADA - JÁ PROCESSADA");
+           
+            $data = $registration->dataprev_raw;
+            $statusAtual = array_search($data->SITUACAO_CADASTRO, $this->statusCodeDataprev());
+
+            if ($registration->dataprev_raw != (object) [] && !$this->reprocess($r)) {
+                $app->log->info("Dataprev #{$count} {$registration} REPROVADA - JÁ PROCESSADA O STATUS ATUAL É {$statusAtual}");
                 continue;
             }
-
+                       
             $app->log->info("Dataprev #{$count} {$registration} REPROVADA");
 
             $registration->dataprev_raw = $raw_data_by_num[$registration->number];
@@ -2873,6 +2894,58 @@ class Controller extends \MapasCulturais\Controllers\Registration
         $app->enableAccessControl();
         $this->finish('ok');        
         
+    }
+
+    /**
+     * Relação de status DEataprev
+     */
+    private function statusCodeDataprev(){
+        return [
+            'NAO PROCESSADO' => 1,
+            'PROCESSADO' => 2,
+            'AGUARDANDO PROCESSAMENTO' => 3,
+            'REPROCESSADO' => 4,
+            'CANCELADO' => 5,
+            'PAGAMENTO CONFIRMADO' => 6,
+            'PRESTACAO DE CONTAS CONFIRMADA' => 7,
+            'RETIDO PARA AVALIACAO' => 8
+        ];
+    }
+
+    /**
+     * Faz as analises reprocessamento ao importar o retorno do Dataprev
+     */
+    private function reprocess($r){        
+        $app = App::i();
+        $user = $app->plugins['AldirBlancDataprev']->getUser();
+        $registration = $app->repo('Registration')->findOneBy(['number' => $r['N_INSCRICAO']]);        
+
+        $metaDado = $registration->getMetadata();
+        $data = json_decode($metaDado['dataprev_raw']);
+
+        /**
+         * Reprocessamento erro dataprev
+         */
+        if(in_array('Reprocessado,', $r['REASONS'])){
+            return true;
+        }
+
+        /**
+         * Reprocessamento inscrições que estvam como retidas para avaliações
+         */
+        if($data->SITUACAO_CADASTRO == 8){
+            return true;
+        }
+        
+        /**
+         * Analisa se deve existir reprocessamento da inscrição caso em um segundo momento a mesma venha com status (2-“Processado”, 5-“Cancelado”, 4-“Reprocessado”)
+         */
+        if((in_array($r['SITUACAO_CADASTRO'], [2, 5,4])) && ($r['SITUACAO_CADASTRO'] != $data->SITUACAO_CADASTRO)){
+            $app->log->info($r['N_INSCRICAO'] . " SERÁ REPROCESSADA");            
+            return true;
+        }
+
+        return false;
     }
 
     /**

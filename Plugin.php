@@ -12,7 +12,7 @@ class Plugin extends \AldirBlanc\PluginValidador
         $config += [
             // se true, só exporta as inscrições pendentes que já tenham alguma avaliação
             'exportador_requer_homologacao' => env('DATAPREV_REQUER_HOMOLOGACAO', true),
-            
+
             'csv_inciso1' => require_once env('AB_CSV_INCISO1', __DIR__ . '/config-csv-inciso1.php'),
             'csv_inciso2' => require_once env('AB_CSV_INCISO2', __DIR__ . '/config-csv-inciso2.php'),
             'csv_inciso3' => require_once env('AB_CSV_INCISO3', __DIR__ . '/config-csv-inciso3.php'),
@@ -54,7 +54,7 @@ class Plugin extends \AldirBlanc\PluginValidador
                     $inciso = 3;
 
                 }
-                
+
                 $this->part('aldirblanc/csv-button', ['inciso' => $inciso, 'opportunity' => $opportunity, 'plugin_validador' => $plugin_validador]);
             }
         });
@@ -114,7 +114,7 @@ class Plugin extends \AldirBlanc\PluginValidador
             'private' => true,
             'default_value' => false
         ]);
-        
+
         $this->registerRegistrationMetadata('dataprev_cpf_outro_conjuge', [
             'label' => 'Dataprev - CPF do outro conjuge',
             'type' => 'boolean',
@@ -122,7 +122,7 @@ class Plugin extends \AldirBlanc\PluginValidador
             'default_value' => false
         ]);
 
-        $file_group_definition = new \MapasCulturais\Definitions\FileGroup('dataprev', ['^text/csv$'], 'O arquivo enviado não é um csv.',false,null,true);
+        $file_group_definition = new \MapasCulturais\Definitions\FileGroup('dataprev', ['^text/csv$', '^application/vnd.ms-excel$'], 'O arquivo enviado não é um csv.',false,null,true);
         $app->registerFileGroup('opportunity', $file_group_definition);
 
         parent::register();
