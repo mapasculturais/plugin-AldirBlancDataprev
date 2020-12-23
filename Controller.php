@@ -2646,14 +2646,19 @@ class Controller extends \MapasCulturais\Controllers\Registration
         //Inicia a verificação dos dados do requerente
         $evaluation = [];
         $parameters = $conf_csv['acceptance_parameters'];
-        $register = $conf_csv['RegisterNumber'];
+        $registers = $conf_csv['typeRegisters'];
         
         $registrat_ids = [];        
-
+        
         foreach ($results as $results_key => $item) {
-            
-            $registrat_ids[] = $item[$register];
+            foreach($registers as $register){
+                if($item[$register]){
+                    $registrat_ids[] = $item[$register];
+                    break;
+                }
+            }
         }       
+        
         
         $dql = "
         SELECT
@@ -2678,10 +2683,18 @@ class Controller extends \MapasCulturais\Controllers\Registration
        
         $raw_data_by_num = [];
         // return;
-        foreach ($results as $results_key => $result) {
+        foreach ($results as $results_key => $result) {            
+          
+            foreach($registers as $register){                 
+                if($result[$register]){
+                    $reg = preg_replace('/[^0-9]/i', '',$result[$register]);
+                    $registration = $app->repo('Registration')->findOneBy(['id' => $reg]);
+                    $raw_data_by_num[$registration->number] = $result;
+                    $fieldCadCultural = $register;
+                    break;
+                }
+            }
             
-            $raw_data_by_num[$result[$register]] = $result;
-
             $candidate = $result;
             foreach ($candidate as $key_candidate => $value) {                
                 
@@ -2689,7 +2702,7 @@ class Controller extends \MapasCulturais\Controllers\Registration
                     $evaluation[$results_key]['DADOS_DO_REQUERENTE']['SITUACAO_CADASTRO'] = $value;
                 }
                 
-                if ($key_candidate == $conf_csv['RegisterNumber']) {
+                if ($key_candidate == $fieldCadCultural) {
                     $evaluation[$results_key]['DADOS_DO_REQUERENTE']['N_INSCRICAO'] = $value;
                 }
 
@@ -2782,7 +2795,7 @@ class Controller extends \MapasCulturais\Controllers\Registration
                 return $item;
             }
         }));
-
+        
         $app->disableAccessControl();
         $count = 0;
         
@@ -2793,14 +2806,19 @@ class Controller extends \MapasCulturais\Controllers\Registration
             if (!$registration){
                 continue;
             }
+
             $registration->__skipQueuingPCacheRecreation = true;
             
-            /* @TODO: implementar atualização de status?? */            
+            $statusAtual = "";
             $data = $registration->dataprev_raw;
-            $statusAtual = array_search($data->SITUACAO_CADASTRO, $this->statusCodeDataprev());
+            if((array) $data){
+                $statusAtual = array_search($data->SITUACAO_CADASTRO, $this->statusCodeDataprev());
+                
+            }
 
+            /* @TODO: implementar atualização de status?? */ 
             if ($registration->dataprev_raw != (object) [] && !$this->reprocess($r)) {
-                $app->log->info("Dataprev #{$count} {$registration} REPROVADA - JÁ PROCESSADA O STATUS ATUAL É {$statusAtual}");
+                $app->log->info("Dataprev #{$count} {$registration} APROVADA - JÁ PROCESSADA O STATUS ATUAL É {$statusAtual}");
                 continue;
             }      
             
