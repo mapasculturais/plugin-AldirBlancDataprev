@@ -2442,6 +2442,22 @@ class Controller extends \MapasCulturais\Controllers\Registration
         $result_aptUnfit = [];       
         foreach ($evaluation as $key_evaluetion => $value) {
             $result_validation = array_diff($value['VALIDATION'], $conf_csv['validation_reference']);
+
+            if(!empty($result_validation) && in_array('Reprocessado,', $result_validation)){
+                
+                $temp = $value['VALIDATION']['SITUACAO_CADASTRO'];
+                
+                unset($value['VALIDATION']['SITUACAO_CADASTRO']);
+
+                $result_validation = array_diff($value['VALIDATION'], $conf_csv['validation_reference']);
+
+                if(empty($result_validation)){
+                    $value['VALIDATION']['SITUACAO_CADASTRO'] =  true;
+                }else{
+                    $value['VALIDATION']['SITUACAO_CADASTRO'] = $temp;
+                }
+            }
+            
             if (!$result_validation) {
                 $result_aptUnfit[$key_evaluetion] = $value['DADOS_DO_REQUERENTE'];
                 $result_aptUnfit[$key_evaluetion]['ACCEPT'] = true;
@@ -2768,6 +2784,22 @@ class Controller extends \MapasCulturais\Controllers\Registration
         $result_aptUnfit = [];       
         foreach ($evaluation as $key_evaluetion => $value) {
             $result_validation = array_diff($value['VALIDATION'], $conf_csv['validation_reference']);
+
+            if(!empty($result_validation) && in_array('Reprocessado,', $result_validation)){
+                
+                $temp = $value['VALIDATION']['SITUACAO_CADASTRO'];
+                
+                unset($value['VALIDATION']['SITUACAO_CADASTRO']);
+
+                $result_validation = array_diff($value['VALIDATION'], $conf_csv['validation_reference']);
+
+                if(empty($result_validation)){
+                    $value['VALIDATION']['SITUACAO_CADASTRO'] =  true;
+                }else{
+                    $value['VALIDATION']['SITUACAO_CADASTRO'] = $temp;
+                }
+            }
+
             if (!$result_validation) {
                 $result_aptUnfit[$key_evaluetion] = $value['DADOS_DO_REQUERENTE'];
                 $result_aptUnfit[$key_evaluetion]['ACCEPT'] = true;
@@ -2958,7 +2990,7 @@ class Controller extends \MapasCulturais\Controllers\Registration
         /**
          * Analisa se deve existir reprocessamento da inscrição caso em um segundo momento a mesma venha com status (2-“Processado”, 5-“Cancelado”, 4-“Reprocessado”)
          */
-        if((in_array($r['SITUACAO_CADASTRO'], [2, 5,4])) && ($r['SITUACAO_CADASTRO'] != $data->SITUACAO_CADASTRO)){
+        if((in_array($r['SITUACAO_CADASTRO'], [2, 5,4]))){
             $app->log->info($r['N_INSCRICAO'] . " SERÁ REPROCESSADA");            
             return true;
         }
