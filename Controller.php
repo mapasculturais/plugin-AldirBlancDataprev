@@ -2490,8 +2490,10 @@ class Controller extends \MapasCulturais\Controllers\Registration
         
         foreach($aprovados as $r) {
             $count++;
+
+            $registration_id = preg_replace('/[^0-9]/i', '',$r['N_INSCRICAO']);            
+            $registration = $app->repo('Registration')->findOneBy(['id' => $registration_id]);
             
-            $registration = $app->repo('Registration')->findOneBy(['number' => $r['N_INSCRICAO']]);
             if (!$registration){
                 continue;
             }
@@ -2538,7 +2540,10 @@ class Controller extends \MapasCulturais\Controllers\Registration
 
         foreach($reprovados as $r) {
             $count++;
-            $registration = $app->repo('Registration')->findOneBy(['number' => $r['N_INSCRICAO']]);
+
+            $registration_id = preg_replace('/[^0-9]/i', '',$r['N_INSCRICAO']);
+
+            $registration = $app->repo('Registration')->findOneBy(['id' => $registration_id]);
             if (!$registration){
                 continue;
             }
@@ -2834,7 +2839,9 @@ class Controller extends \MapasCulturais\Controllers\Registration
         foreach($aprovados as $r) {
             $count++;
             
-            $registration = $app->repo('Registration')->findOneBy(['number' => $r['N_INSCRICAO']]);
+            $registration_id = preg_replace('/[^0-9]/i', '',$r['N_INSCRICAO']);            
+            $registration = $app->repo('Registration')->findOneBy(['id' => $registration_id]);
+
             if (!$registration){
                 continue;
             }
@@ -2883,7 +2890,9 @@ class Controller extends \MapasCulturais\Controllers\Registration
         foreach($reprovados as $r) {
             $count++;           
            
-            $registration = $app->repo('Registration')->findOneBy(['number' => $r['N_INSCRICAO']]);
+            $registration_id = preg_replace('/[^0-9]/i', '',$r['N_INSCRICAO']);            
+            $registration = $app->repo('Registration')->findOneBy(['id' => $registration_id]);
+
             if (!$registration){
                 continue;
             }
@@ -2968,7 +2977,8 @@ class Controller extends \MapasCulturais\Controllers\Registration
     private function reprocess($r){        
         $app = App::i();
         $user = $app->plugins['AldirBlancDataprev']->getUser();
-        $registration = $app->repo('Registration')->findOneBy(['number' => $r['N_INSCRICAO']]);        
+        $registration_id = preg_replace('/[^0-9]/i', '',$r['N_INSCRICAO']); 
+        $registration = $app->repo('Registration')->findOneBy(['id' => $registration_id]);        
 
         $metaDado = $registration->getMetadata();
         $data = json_decode($metaDado['dataprev_raw']);
